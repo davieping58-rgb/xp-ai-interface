@@ -92,7 +92,9 @@ async function startWebRecording(): Promise<boolean> {
         new Promise<string | null>((resolve) => {
           mediaRecorder.onstop = () => {
             // Stop all tracks to release the microphone
-            stream.getTracks().forEach((track) => track.stop());
+            for (const track of stream.getTracks()) {
+              track.stop();
+            }
 
             if (chunks.length === 0) {
               resolve(null);
@@ -107,7 +109,9 @@ async function startWebRecording(): Promise<boolean> {
           if (mediaRecorder.state === "recording" || mediaRecorder.state === "paused") {
             mediaRecorder.stop();
           } else {
-            stream.getTracks().forEach((track) => track.stop());
+            for (const track of stream.getTracks()) {
+              track.stop();
+            }
             resolve(null);
           }
         }),
