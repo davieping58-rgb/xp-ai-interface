@@ -263,16 +263,8 @@ export default function HomeScreen() {
         <Ionicons name="ellipsis-vertical" size={16} color={Colors.primaryGlow} />
       </Pressable>
 
-      {/* XP Face - centered */}
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          paddingTop: insets.top,
-          paddingBottom: 180,
-        }}
-      >
+      {/* XP Face — full-screen background layer */}
+      <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
         <XPFace />
       </View>
 
