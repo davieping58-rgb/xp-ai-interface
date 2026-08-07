@@ -391,8 +391,8 @@ function ParticleField({ size, color }: { size: number; color: string }) {
         ])
       );
     });
-    animations.forEach((a) => a.start());
-    return () => animations.forEach((a) => a.stop());
+    for (const a of animations) a.start();
+    return () => { for (const a of animations) a.stop(); };
   }, [particles]);
 
   return (

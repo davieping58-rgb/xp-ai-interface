@@ -94,9 +94,59 @@ export default function HomeScreen() {
     setSubtitle(XP_INTRO_LINES[introIndex]);
   }, [introIndex, setSubtitle]);
 
+  // Shared: build prompt context from store state
+  const buildPromptContext = useCallback(() => {
+    const memoryContext =
+      memories.length > 0
+        ? `\n\nUser memories: ${memories.map((m) => m.content).join("; ")}`
+        : "";
+    const recentMessages = conversations
+      .slice(-6)
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n");
+    return { memoryContext, recentMessages };
+  }, [memories, conversations]);
+
+  // Shared: speak XP response and update state
+  const speakXPResponse = useCallback(
+    (xpText: string) => {
+      addMessage("xp", xpText);
+      setSubtitle(xpText);
+      setAnimation("speaking");
+      setIsSpeaking(true);
+      if (settings.voiceEnabled) {
+        Speech.speak(xpText, {
+          rate: settings.voiceSpeed,
+          language: "en-GB",
+          onDone: () => { setIsSpeaking(false); setAnimation("idle"); },
+          onError: () => { setIsSpeaking(false); setAnimation("idle"); },
+        });
+      } else {
+        setTimeout(() => { setIsSpeaking(false); setAnimation("idle"); }, 2000);
+      }
+    },
+    [addMessage, setSubtitle, setAnimation, setIsSpeaking, settings]
+  );
+
+  // Processes a voice activation (no STT text captured)
+  const handleVoiceInput = useCallback(async () => {
+    try {
+      setSubtitle("Thinking...");
+      const { memoryContext, recentMessages } = buildPromptContext();
+      const prompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nThe user just spoke to you but speech-to-text didn't capture clear words. Respond naturally, briefly.`;
+      const response = await generateText(prompt);
+      if (response) speakXPResponse(typeof response === "string" ? response : String(response));
+    } catch {
+      setSubtitle("Something went wrong. Give it another go.");
+      setAnimation("idle");
+    }
+  }, [buildPromptContext, currentMode, generateText, speakXPResponse, setSubtitle, setAnimation]);
+
+  // Keep ref in sync so the setTimeout closure always gets the latest version
+  voiceInputRef.current = handleVoiceInput;
+
   const handleMicPress = useCallback(async () => {
     if (isSpeaking) {
-      // Stop speaking
       Speech.stop();
       setIsSpeaking(false);
       setAnimation("idle");
@@ -104,141 +154,36 @@ export default function HomeScreen() {
     }
 
     if (isListening) {
-      // Stop listening and process
       setIsListening(false);
       setAnimation("thinking");
       setSubtitle("Thinking...");
-
       try {
-        const memoryContext =
-          memories.length > 0
-            ? `\n\nUser memories: ${memories.map((m) => m.content).join("; ")}`
-            : "";
-
-        const recentMessages = conversations
-          .slice(-6)
-          .map((m) => `${m.role}: ${m.content}`)
-          .join("\n");
-
-        const prompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nThe user just activated voice but no speech was captured. Respond briefly as if they tapped to get your attention. Be natural.`;
-
+        const { memoryContext, recentMessages } = buildPromptContext();
+        const prompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nThe user tapped the mic. Respond briefly as if they got your attention. Be natural.`;
         const response = await generateText(prompt);
-
-        if (response) {
-          const xpText = typeof response === "string" ? response : String(response);
-          addMessage("xp", xpText);
-          setSubtitle(xpText);
-          setAnimation("speaking");
-          setIsSpeaking(true);
-
-          if (settings.voiceEnabled) {
-            Speech.speak(xpText, {
-              rate: settings.voiceSpeed,
-              language: "en-GB",
-              onDone: () => {
-                setIsSpeaking(false);
-                setAnimation("idle");
-              },
-              onError: () => {
-                setIsSpeaking(false);
-                setAnimation("idle");
-              },
-            });
-          } else {
-            setTimeout(() => {
-              setIsSpeaking(false);
-              setAnimation("idle");
-            }, 2000);
-          }
-        }
+        if (response) speakXPResponse(typeof response === "string" ? response : String(response));
       } catch {
         setSubtitle("Something went wrong. Try again.");
         setAnimation("idle");
       }
     } else {
-      // Start listening
       setIsListening(true);
       setAnimation("listening");
       setSubtitle("I'm listening...");
-
-      // Simulate listening timeout (real STT would replace this)
+      // Simulate listening timeout — real STT would replace this
       setTimeout(() => {
         if (useAppStore.getState().isListening) {
           useAppStore.getState().setIsListening(false);
           useAppStore.getState().setAnimation("thinking");
-          // Trigger voice processing via ref
           voiceInputRef.current?.();
         }
       }, 5000);
     }
   }, [
-    isSpeaking,
-    isListening,
-    setIsListening,
-    setIsSpeaking,
-    setAnimation,
-    setSubtitle,
-    memories,
-    conversations,
-    currentMode,
-    settings,
-    generateText,
-    addMessage,
+    isSpeaking, isListening,
+    setIsListening, setIsSpeaking, setAnimation, setSubtitle,
+    buildPromptContext, currentMode, generateText, speakXPResponse,
   ]);
-
-  const handleVoiceInput = useCallback(async () => {
-    try {
-      setSubtitle("Thinking...");
-
-      const memoryContext =
-        memories.length > 0
-          ? `\n\nUser memories: ${memories.map((m) => m.content).join("; ")}`
-          : "";
-
-      const recentMessages = conversations
-        .slice(-6)
-        .map((m) => `${m.role}: ${m.content}`)
-        .join("\n");
-
-      const prompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nThe user just spoke to you but the speech-to-text didn't capture clear words. Respond naturally, briefly, maybe ask what's on their mind.`;
-
-      const response = await generateText(prompt);
-
-      if (response) {
-        const xpText = typeof response === "string" ? response : String(response);
-        addMessage("xp", xpText);
-        setSubtitle(xpText);
-        setAnimation("speaking");
-        setIsSpeaking(true);
-
-        if (settings.voiceEnabled) {
-          Speech.speak(xpText, {
-            rate: settings.voiceSpeed,
-            language: "en-GB",
-            onDone: () => {
-              setIsSpeaking(false);
-              setAnimation("idle");
-            },
-            onError: () => {
-              setIsSpeaking(false);
-              setAnimation("idle");
-            },
-          });
-        } else {
-          setTimeout(() => {
-            setIsSpeaking(false);
-            setAnimation("idle");
-          }, 2000);
-        }
-      }
-    } catch {
-      setSubtitle("Something went wrong. Give it another go.");
-      setAnimation("idle");
-    }
-  }, [memories, conversations, currentMode, settings, generateText, addMessage, setSubtitle, setAnimation, setIsSpeaking]);
-
-  // Keep ref in sync so timeout can call it without stale closures
-  voiceInputRef.current = handleVoiceInput;
 
   const handleStopSpeaking = useCallback(() => {
     Speech.stop();

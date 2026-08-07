@@ -25,6 +25,7 @@ export function TextInputPanel({ onBack }: TextInputPanelProps) {
   const scrollRef = useRef<ScrollView>(null);
   const conversations = useAppStore((s) => s.conversations);
   const addMessage = useAppStore((s) => s.addMessage);
+  const addMemory = useAppStore((s) => s.addMemory);
   const settings = useAppStore((s) => s.settings);
   const memories = useAppStore((s) => s.memories);
   const currentMode = useAppStore((s) => s.currentMode);
@@ -38,6 +39,12 @@ export function TextInputPanel({ onBack }: TextInputPanelProps) {
 
     setInputText("");
     addMessage("user", text);
+
+    // Auto-save explicit "remember" requests as facts
+    const rememberMatch = text.match(/^(?:remember|note|save)[:\s]+(.+)/i);
+    if (rememberMatch?.[1] && settings.memoryEnabled) {
+      addMemory("fact", rememberMatch[1].trim());
+    }
 
     try {
       setAnimation("thinking");
@@ -78,7 +85,7 @@ export function TextInputPanel({ onBack }: TextInputPanelProps) {
     setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, 100);
-  }, [inputText, isLoading, addMessage, generateText, memories, conversations, currentMode, settings, setAnimation]);
+  }, [inputText, isLoading, addMessage, addMemory, generateText, memories, conversations, currentMode, settings, setAnimation]);
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: Colors.background }} behavior="padding">

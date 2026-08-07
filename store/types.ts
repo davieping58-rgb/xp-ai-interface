@@ -48,4 +48,4 @@ export interface XPSettings {
   voiceSpeed: number;
 }
 
-export interface Preferences {}
+export type Preferences = Record<string, never>;
