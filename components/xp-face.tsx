@@ -7,11 +7,11 @@ import type { ModeType } from "@/store/types";
 
 const AnimatedView = Animated.View;
 
-interface XPFaceProps {
+interface XpFaceProps {
   size?: number;
 }
 
-export function XPFace({ size: propSize }: XPFaceProps) {
+export function XPFace({ size: propSize }: XpFaceProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const size = propSize ?? Math.min(screenWidth * 0.85, screenHeight * 0.55);
 

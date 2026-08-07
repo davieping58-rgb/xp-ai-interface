@@ -108,7 +108,7 @@ export default function HomeScreen() {
   }, [memories, conversations]);
 
   // Shared: speak XP response and update state
-  const speakXPResponse = useCallback(
+  const speakXpResponse = useCallback(
     (xpText: string) => {
       addMessage("xp", xpText);
       setSubtitle(xpText);
@@ -135,12 +135,12 @@ export default function HomeScreen() {
       const { memoryContext, recentMessages } = buildPromptContext();
       const prompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nThe user just spoke to you but speech-to-text didn't capture clear words. Respond naturally, briefly.`;
       const response = await generateText(prompt);
-      if (response) speakXPResponse(typeof response === "string" ? response : String(response));
+      if (response) speakXpResponse(typeof response === "string" ? response : String(response));
     } catch {
       setSubtitle("Something went wrong. Give it another go.");
       setAnimation("idle");
     }
-  }, [buildPromptContext, currentMode, generateText, speakXPResponse, setSubtitle, setAnimation]);
+  }, [buildPromptContext, currentMode, generateText, speakXpResponse, setSubtitle, setAnimation]);
 
   // Keep ref in sync so the setTimeout closure always gets the latest version
   voiceInputRef.current = handleVoiceInput;
@@ -161,7 +161,7 @@ export default function HomeScreen() {
         const { memoryContext, recentMessages } = buildPromptContext();
         const prompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nThe user tapped the mic. Respond briefly as if they got your attention. Be natural.`;
         const response = await generateText(prompt);
-        if (response) speakXPResponse(typeof response === "string" ? response : String(response));
+        if (response) speakXpResponse(typeof response === "string" ? response : String(response));
       } catch {
         setSubtitle("Something went wrong. Try again.");
         setAnimation("idle");
@@ -182,7 +182,7 @@ export default function HomeScreen() {
   }, [
     isSpeaking, isListening,
     setIsListening, setIsSpeaking, setAnimation, setSubtitle,
-    buildPromptContext, currentMode, generateText, speakXPResponse,
+    buildPromptContext, currentMode, generateText, speakXpResponse,
   ]);
 
   const handleStopSpeaking = useCallback(() => {
