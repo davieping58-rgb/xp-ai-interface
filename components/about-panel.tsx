@@ -146,6 +146,7 @@ export function AboutPanel({ onBack }: AboutPanelProps) {
           <DetailRow label="Voice" value="Scottish male, warm and intelligent" />
           <DetailRow label="Architecture" value="Local-first, AI-powered" />
           <DetailRow label="Memory" value="On-device, user-controlled" />
+          <DetailRow label="Hardware" value="Phone (Mk1 rover: coming)" />
         </View>
 
         {/* Origin story */}
@@ -192,6 +193,18 @@ export function AboutPanel({ onBack }: AboutPanelProps) {
           >
             Built with the philosophy that AI should feel like a teammate, not a tool. XP adapts
             to your mission, remembers your world, and speaks with his own voice.
+          </Text>
+          <Text
+            style={{
+              fontFamily: Fonts.regular,
+              fontSize: 13,
+              color: Colors.textDim,
+              lineHeight: 20,
+            }}
+          >
+            Right now, XP lives in your phone — treating it as his body, seeing through
+            your camera, hearing through your mic. The architecture is built for future
+            migration to the XP Mk1 rover hardware platform.
           </Text>
         </View>
 

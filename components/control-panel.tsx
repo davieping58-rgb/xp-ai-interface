@@ -33,6 +33,7 @@ const TILES: TileData[] = [
   { id: "voice", label: "Voice", icon: "mic-outline", iconFamily: "ionicons" },
   { id: "camera", label: "Camera", icon: "camera-outline", iconFamily: "ionicons" },
   { id: "text", label: "Text Input", icon: "chatbox-outline", iconFamily: "ionicons" },
+  { id: "permissions", label: "Permissions", icon: "key-outline", iconFamily: "ionicons" },
   { id: "privacy", label: "Privacy", icon: "shield-checkmark-outline", iconFamily: "ionicons" },
 ];
 

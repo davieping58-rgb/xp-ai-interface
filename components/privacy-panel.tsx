@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { View, Text, Pressable, ScrollView, Alert } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, Switch } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import { Fonts } from "@/constants/Typography";
@@ -12,6 +12,15 @@ interface PrivacyPanelProps {
 export function PrivacyPanel({ onBack }: PrivacyPanelProps) {
   const clearAllMemories = useAppStore((s) => s.clearAllMemories);
   const clearConversations = useAppStore((s) => s.clearConversations);
+  const settings = useAppStore((s) => s.settings);
+  const updateSettings = useAppStore((s) => s.updateSettings);
+
+  const handleMemoryToggle = useCallback(
+    (value: boolean) => {
+      updateSettings({ memoryEnabled: value });
+    },
+    [updateSettings]
+  );
 
   const handleClearAll = useCallback(() => {
     Alert.alert(
@@ -135,6 +144,47 @@ export function PrivacyPanel({ onBack }: PrivacyPanelProps) {
           <InfoRow
             icon="trash-outline"
             text="You can wipe all data at any time — XP forgets everything instantly."
+          />
+        </View>
+
+        {/* Memory toggle */}
+        <Text
+          style={{
+            fontFamily: Fonts.semiBold,
+            fontSize: 11,
+            color: Colors.textDim,
+            letterSpacing: 1.5,
+            textTransform: "uppercase",
+            marginTop: 16,
+          }}
+        >
+          Memory Control
+        </Text>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            padding: 16,
+            borderRadius: 12,
+            backgroundColor: Colors.tileBg,
+            borderWidth: 1,
+            borderColor: Colors.panelBorder,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: Fonts.medium, fontSize: 14, color: Colors.text }}>
+              Memory Enabled
+            </Text>
+            <Text style={{ fontFamily: Fonts.regular, fontSize: 11, color: Colors.textDim, marginTop: 2 }}>
+              When off, XP forgets everything after each session
+            </Text>
+          </View>
+          <Switch
+            value={settings.memoryEnabled}
+            onValueChange={handleMemoryToggle}
+            trackColor={{ false: "rgba(255,255,255,0.1)", true: "rgba(0, 229, 255, 0.3)" }}
+            thumbColor={settings.memoryEnabled ? Colors.primaryGlow : "#555"}
           />
         </View>
 

@@ -22,6 +22,7 @@ import { VoicePanel } from "@/components/voice-panel";
 import { CameraPanel } from "@/components/camera-panel";
 import { TextInputPanel } from "@/components/text-input-panel";
 import { PrivacyPanel } from "@/components/privacy-panel";
+import { PermissionsPanel } from "@/components/permissions-panel";
 import { AboutPanel } from "@/components/about-panel";
 import { useAppStore } from "@/store/useAppStore";
 import { useTextGeneration, useAudioTranscription } from "@fastshot/ai";
@@ -37,6 +38,7 @@ type ActiveScreen =
   | "voice"
   | "camera"
   | "text"
+  | "permissions"
   | "privacy"
   | "about";
 
@@ -266,6 +268,8 @@ export default function HomeScreen() {
         return <CameraPanel onBack={handleBack} />;
       case "text":
         return <TextInputPanel onBack={handleBack} />;
+      case "permissions":
+        return <PermissionsPanel onBack={handleBack} />;
       case "privacy":
         return <PrivacyPanel onBack={handleBack} />;
       case "about":
@@ -306,9 +310,15 @@ export default function HomeScreen() {
       </Pressable>
 
       {/* XP Face — full-screen background layer */}
-      <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+      <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 }}>
         <XPFace />
       </View>
+
+      {/* Tap area over face to open control panel */}
+      <Pressable
+        onPress={handleOpenPanel}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 140, zIndex: 1 }}
+      />
 
       {/* Bottom section - subtitle + controls */}
       <View
@@ -320,6 +330,7 @@ export default function HomeScreen() {
           paddingBottom: insets.bottom + 20,
           alignItems: "center",
           gap: 16,
+          zIndex: 10,
         }}
       >
         {/* Audio wave visualization when listening */}
