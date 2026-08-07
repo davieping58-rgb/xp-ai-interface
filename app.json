@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Here Is A",
-    "slug": "here-is-a-short-catchy-project-name-for-the",
+    "name": "XP",
+    "slug": "xp-holographic-companion",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "fastshot",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false
@@ -21,7 +21,8 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "backgroundColor": "#000814"
     },
     "plugins": [
       "expo-router",
@@ -31,7 +32,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#000814"
         }
       ]
     ],

@@ -1,24 +1,27 @@
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from "@expo-google-fonts/inter";
+  Exo2_300Light,
+  Exo2_400Regular,
+  Exo2_500Medium,
+  Exo2_600SemiBold,
+  Exo2_700Bold,
+} from "@expo-google-fonts/exo-2";
 
 // Font map passed to useFonts() in _layout.tsx
 export const FontMap = {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
+  Exo2_300Light,
+  Exo2_400Regular,
+  Exo2_500Medium,
+  Exo2_600SemiBold,
+  Exo2_700Bold,
 };
 
 // Semantic aliases used in styles throughout the app
 export const Fonts = {
-  regular: "Inter_400Regular",
-  medium: "Inter_500Medium",
-  semiBold: "Inter_600SemiBold",
-  bold: "Inter_700Bold",
+  light: "Exo2_300Light",
+  regular: "Exo2_400Regular",
+  medium: "Exo2_500Medium",
+  semiBold: "Exo2_600SemiBold",
+  bold: "Exo2_700Bold",
 } as const;
 
 export type FontWeight = keyof typeof Fonts;
