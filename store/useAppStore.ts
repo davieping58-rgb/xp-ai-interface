@@ -62,6 +62,9 @@ export const useAppStore = create<AppState>()(
         listeningMode: "push-to-talk",
         wakePhraseEnabled: false,
         voiceSpeed: 1.0,
+        displayBrightness: 0.8,
+        language: "en-GB",
+        micSensitivity: 0.7,
       },
 
       // Empty initial data

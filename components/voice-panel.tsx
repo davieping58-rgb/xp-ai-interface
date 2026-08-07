@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import { Fonts } from "@/constants/Typography";
 import { useAppStore } from "@/store/useAppStore";
-import * as Speech from "expo-speech";
+import { speakWithScottishVoice, stopSpeaking } from "@/utils/speech";
 
 interface VoicePanelProps {
   onBack: () => void;
@@ -18,10 +18,8 @@ export function VoicePanel({ onBack }: VoicePanelProps) {
   const handleVoiceTest = useCallback(async () => {
     try {
       setIsTesting(true);
-      await Speech.speak("Hey, it's XP. Sounds like we're all good here.", {
+      await speakWithScottishVoice("Hey, it's XP. Sounds like we're all good here. Ready for whatever comes next.", {
         rate: settings.voiceSpeed,
-        pitch: 1.0,
-        language: "en-GB",
         onDone: () => setIsTesting(false),
         onError: () => setIsTesting(false),
       });
@@ -31,7 +29,7 @@ export function VoicePanel({ onBack }: VoicePanelProps) {
   }, [settings.voiceSpeed]);
 
   const handleStopTest = useCallback(() => {
-    Speech.stop();
+    stopSpeaking();
     setIsTesting(false);
   }, []);
 
@@ -62,7 +60,7 @@ export function VoicePanel({ onBack }: VoicePanelProps) {
               letterSpacing: 1,
             }}
           >
-            Voice
+            Voice Controls
           </Text>
         </View>
         <View style={{ width: 40 }} />
@@ -110,7 +108,6 @@ export function VoicePanel({ onBack }: VoicePanelProps) {
 
           <Pressable
             onPress={isTesting ? handleStopTest : handleVoiceTest}
-            disabled={false}
             style={({ pressed }) => ({
               paddingHorizontal: 24,
               paddingVertical: 12,
@@ -143,6 +140,53 @@ export function VoicePanel({ onBack }: VoicePanelProps) {
               </>
             )}
           </Pressable>
+        </View>
+
+        {/* Microphone sensitivity */}
+        <View
+          style={{
+            padding: 16,
+            borderRadius: 12,
+            backgroundColor: Colors.tileBg,
+            borderWidth: 1,
+            borderColor: Colors.panelBorder,
+          }}
+        >
+          <Text style={{ fontFamily: Fonts.medium, fontSize: 14, color: Colors.text, marginBottom: 4 }}>
+            Microphone Sensitivity
+          </Text>
+          <Text style={{ fontFamily: Fonts.regular, fontSize: 11, color: Colors.textDim, marginBottom: 12 }}>
+            How easily XP picks up your voice
+          </Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {[0.3, 0.5, 0.7, 0.9, 1.0].map((level) => (
+              <Pressable
+                key={level}
+                onPress={() => updateSettings({ micSensitivity: level })}
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                  backgroundColor:
+                    settings.micSensitivity === level ? "rgba(0, 229, 255, 0.15)" : "transparent",
+                  borderWidth: 1,
+                  borderColor:
+                    settings.micSensitivity === level ? Colors.primaryGlow : Colors.panelBorder,
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: settings.micSensitivity === level ? Fonts.semiBold : Fonts.regular,
+                    fontSize: 11,
+                    color: settings.micSensitivity === level ? Colors.primaryGlow : Colors.textDim,
+                  }}
+                >
+                  {Math.round(level * 100)}%
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
 
         {/* Speed control */}
@@ -241,13 +285,33 @@ export function VoicePanel({ onBack }: VoicePanelProps) {
                     style={{ fontFamily: Fonts.regular, fontSize: 11, color: Colors.textDim, marginTop: 2 }}
                   >
                     {mode === "push-to-talk"
-                      ? "Tap and hold to speak"
+                      ? "Tap the mic to start, tap again to stop"
                       : "XP listens continuously (uses more battery)"}
                   </Text>
                 </View>
               </Pressable>
             ))}
           </View>
+        </View>
+
+        {/* Voice info */}
+        <View
+          style={{
+            padding: 16,
+            borderRadius: 12,
+            backgroundColor: Colors.tileBg,
+            borderWidth: 1,
+            borderColor: Colors.panelBorder,
+            gap: 8,
+          }}
+        >
+          <Text style={{ fontFamily: Fonts.semiBold, fontSize: 12, color: Colors.primaryGlow, letterSpacing: 1 }}>
+            VOICE PROFILE
+          </Text>
+          <Text style={{ fontFamily: Fonts.regular, fontSize: 12, color: Colors.textDim, lineHeight: 18 }}>
+            XP uses a warm Scottish male voice (British English). The system selects
+            the best available voice on your device that matches this profile.
+          </Text>
         </View>
       </ScrollView>
     </View>

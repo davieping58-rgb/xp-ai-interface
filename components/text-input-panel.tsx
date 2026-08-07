@@ -14,7 +14,7 @@ import { Fonts } from "@/constants/Typography";
 import { useAppStore } from "@/store/useAppStore";
 import { useTextGeneration } from "@fastshot/ai";
 import { XP_SYSTEM_PROMPT } from "@/constants/XPPersonality";
-import * as Speech from "expo-speech";
+import { speakWithScottishVoice } from "@/utils/speech";
 
 interface TextInputPanelProps {
   onBack: () => void;
@@ -66,9 +66,8 @@ export function TextInputPanel({ onBack }: TextInputPanelProps) {
         setAnimation("speaking");
 
         if (settings.voiceEnabled) {
-          Speech.speak(xpResponse, {
+          speakWithScottishVoice(xpResponse, {
             rate: settings.voiceSpeed,
-            language: "en-GB",
             onDone: () => setAnimation("idle"),
             onError: () => setAnimation("idle"),
           });

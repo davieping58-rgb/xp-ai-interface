@@ -24,8 +24,9 @@ import { TextInputPanel } from "@/components/text-input-panel";
 import { PrivacyPanel } from "@/components/privacy-panel";
 import { AboutPanel } from "@/components/about-panel";
 import { useAppStore } from "@/store/useAppStore";
-import { useTextGeneration } from "@fastshot/ai";
-import * as Speech from "expo-speech";
+import { useTextGeneration, useAudioTranscription } from "@fastshot/ai";
+import { speakWithScottishVoice, stopSpeaking } from "@/utils/speech";
+import { startAudioRecording, stopAudioRecording } from "@/utils/audio-recorder";
 
 type ActiveScreen =
   | "home"
@@ -60,10 +61,10 @@ export default function HomeScreen() {
   const currentMode = useAppStore((s) => s.currentMode);
 
   const { generateText, isLoading: isThinking } = useTextGeneration();
+  const { transcribeAudio, isLoading: isTranscribing } = useAudioTranscription();
 
   // Audio wave animation for mic
   const waveAnim = useRef(new Animated.Value(0)).current;
-  const voiceInputRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (isListening) {
@@ -115,9 +116,8 @@ export default function HomeScreen() {
       setAnimation("speaking");
       setIsSpeaking(true);
       if (settings.voiceEnabled) {
-        Speech.speak(xpText, {
+        speakWithScottishVoice(xpText, {
           rate: settings.voiceSpeed,
-          language: "en-GB",
           onDone: () => { setIsSpeaking(false); setAnimation("idle"); },
           onError: () => { setIsSpeaking(false); setAnimation("idle"); },
         });
@@ -128,65 +128,105 @@ export default function HomeScreen() {
     [addMessage, setSubtitle, setAnimation, setIsSpeaking, settings]
   );
 
-  // Processes a voice activation (no STT text captured)
-  const handleVoiceInput = useCallback(async () => {
+  // Process transcribed text through AI and respond
+  const processUserMessage = useCallback(async (userText: string) => {
     try {
+      addMessage("user", userText);
+      setAnimation("thinking");
       setSubtitle("Thinking...");
+
       const { memoryContext, recentMessages } = buildPromptContext();
-      const prompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nThe user just spoke to you but speech-to-text didn't capture clear words. Respond naturally, briefly.`;
+      const prompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nuser: ${userText}\nxp:`;
+      const response = await generateText(prompt);
+      if (response) {
+        speakXpResponse(typeof response === "string" ? response : String(response));
+      } else {
+        setSubtitle("Hmm, I lost my train of thought. Try again?");
+        setAnimation("idle");
+      }
+    } catch {
+      setSubtitle("Something went wrong. Give it another go.");
+      setAnimation("idle");
+    }
+  }, [addMessage, buildPromptContext, currentMode, generateText, speakXpResponse, setSubtitle, setAnimation]);
+
+  // Handle fallback when transcription fails or returns empty
+  const handleFallbackResponse = useCallback(async () => {
+    setAnimation("thinking");
+    setSubtitle("Thinking...");
+    const { memoryContext, recentMessages } = buildPromptContext();
+    const prompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nThe user just spoke to you. Respond naturally and briefly, acknowledging them.`;
+    try {
       const response = await generateText(prompt);
       if (response) speakXpResponse(typeof response === "string" ? response : String(response));
+      else {
+        setSubtitle("Ready when you are.");
+        setAnimation("idle");
+      }
     } catch {
       setSubtitle("Something went wrong. Give it another go.");
       setAnimation("idle");
     }
   }, [buildPromptContext, currentMode, generateText, speakXpResponse, setSubtitle, setAnimation]);
 
-  // Keep ref in sync so the setTimeout closure always gets the latest version
-  voiceInputRef.current = handleVoiceInput;
-
+  // Mic press handler — start/stop recording
   const handleMicPress = useCallback(async () => {
+    // If XP is speaking, stop him
     if (isSpeaking) {
-      Speech.stop();
+      stopSpeaking();
       setIsSpeaking(false);
       setAnimation("idle");
       return;
     }
 
+    // If currently listening, stop and process
     if (isListening) {
       setIsListening(false);
       setAnimation("thinking");
-      setSubtitle("Thinking...");
+      setSubtitle("Processing your voice...");
+
       try {
-        const { memoryContext, recentMessages } = buildPromptContext();
-        const prompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nThe user tapped the mic. Respond briefly as if they got your attention. Be natural.`;
-        const response = await generateText(prompt);
-        if (response) speakXpResponse(typeof response === "string" ? response : String(response));
+        const audioUri = await stopAudioRecording();
+
+        if (audioUri) {
+          // Transcribe the audio
+          const transcription = await transcribeAudio({ audioUri, language: "en" });
+
+          if (transcription && typeof transcription === "string" && transcription.trim().length > 0) {
+            // Successfully transcribed — process the message
+            await processUserMessage(transcription.trim());
+          } else {
+            // Transcription empty — respond naturally
+            await handleFallbackResponse();
+          }
+        } else {
+          // No audio URI returned — respond with fallback
+          await handleFallbackResponse();
+        }
       } catch {
-        setSubtitle("Something went wrong. Try again.");
-        setAnimation("idle");
+        // Transcription failed — respond naturally
+        await handleFallbackResponse();
       }
     } else {
-      setIsListening(true);
-      setAnimation("listening");
-      setSubtitle("I'm listening...");
-      // Simulate listening timeout — real STT would replace this
-      setTimeout(() => {
-        if (useAppStore.getState().isListening) {
-          useAppStore.getState().setIsListening(false);
-          useAppStore.getState().setAnimation("thinking");
-          voiceInputRef.current?.();
-        }
-      }, 5000);
+      // Start recording
+      const started = await startAudioRecording();
+      if (started) {
+        setIsListening(true);
+        setAnimation("listening");
+        setSubtitle("I'm listening...");
+      } else {
+        setSubtitle("Mic not available. Try text input instead.");
+        setAnimation("idle");
+      }
     }
   }, [
     isSpeaking, isListening,
-    setIsListening, setIsSpeaking, setAnimation, setSubtitle,
-    buildPromptContext, currentMode, generateText, speakXpResponse,
+    setIsSpeaking, setIsListening, setAnimation, setSubtitle,
+    transcribeAudio, processUserMessage, handleFallbackResponse,
   ]);
 
   const handleStopSpeaking = useCallback(() => {
-    Speech.stop();
+    stopSpeaking();
     setIsSpeaking(false);
     setAnimation("idle");
     setSubtitle("");
@@ -239,6 +279,8 @@ export default function HomeScreen() {
     inputRange: [0, 1],
     outputRange: [1, 1.15],
   });
+
+  const isProcessing = isThinking || isTranscribing;
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
@@ -343,7 +385,7 @@ export default function HomeScreen() {
           <Animated.View style={{ transform: [{ scale: isListening ? micScale : 1 }] }}>
             <Pressable
               onPress={handleMicPress}
-              disabled={isThinking}
+              disabled={isProcessing}
               style={({ pressed }) => ({
                 width: 64,
                 height: 64,
@@ -359,7 +401,7 @@ export default function HomeScreen() {
                 justifyContent: "center",
               })}
             >
-              {isThinking ? (
+              {isProcessing ? (
                 <ActivityIndicator size="small" color={Colors.primaryGlow} />
               ) : (
                 <Ionicons

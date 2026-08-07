@@ -143,7 +143,7 @@ export function AboutPanel({ onBack }: AboutPanelProps) {
         >
           <DetailRow label="Version" value="1.0.0" />
           <DetailRow label="Personality" value="Warm, intelligent, cheeky" />
-          <DetailRow label="Voice" value="British English, warm male" />
+          <DetailRow label="Voice" value="Scottish male, warm and intelligent" />
           <DetailRow label="Architecture" value="Local-first, AI-powered" />
           <DetailRow label="Memory" value="On-device, user-controlled" />
         </View>

@@ -6,6 +6,7 @@ import { Colors } from "@/constants/Colors";
 import { Fonts } from "@/constants/Typography";
 import { useImageAnalysis } from "@fastshot/ai";
 import { useAppStore } from "@/store/useAppStore";
+import { speakWithScottishVoice } from "@/utils/speech";
 
 interface CameraPanelProps {
   onBack: () => void;
@@ -15,12 +16,13 @@ export function CameraPanel({ onBack }: CameraPanelProps) {
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const addMessage = useAppStore((s) => s.addMessage);
+  const settings = useAppStore((s) => s.settings);
+  const setAnimation = useAppStore((s) => s.setAnimation);
 
   const { analyzeImage, isLoading, error } = useImageAnalysis();
 
   const handlePickImage = useCallback(async () => {
     try {
-      // Dynamic import to handle platforms that don't support it
       const ImagePicker = await import("expo-image-picker");
       const permResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -45,13 +47,39 @@ export function CameraPanel({ onBack }: CameraPanelProps) {
     }
   }, []);
 
+  const handleTakePhoto = useCallback(async () => {
+    try {
+      const ImagePicker = await import("expo-image-picker");
+      const permResult = await ImagePicker.requestCameraPermissionsAsync();
+
+      if (!permResult.granted) {
+        setAnalysisResult("I need camera access to see what you're showing me. Grant permission in settings.");
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 0.8,
+        allowsEditing: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const uri = result.assets[0].uri;
+        setCapturedUri(uri);
+        setAnalysisResult(null);
+      }
+    } catch {
+      setAnalysisResult("Camera not available on this device. Try picking an image instead.");
+    }
+  }, []);
+
   const handleAnalyze = useCallback(async () => {
     if (!capturedUri) return;
 
     try {
+      setAnimation("thinking");
       const result = await analyzeImage({
         imageUrl: capturedUri,
-        prompt: "Describe what you see in this image in detail. Be conversational and insightful, like a smart friend commenting on what they notice.",
+        prompt: "Describe what you see in this image in detail. Be conversational and insightful, like a smart Scottish friend commenting on what they notice. Keep it natural and engaging.",
       });
 
       if (result) {
@@ -59,11 +87,25 @@ export function CameraPanel({ onBack }: CameraPanelProps) {
         setAnalysisResult(text);
         addMessage("user", "[Shared an image for analysis]");
         addMessage("xp", text);
+        setAnimation("speaking");
+
+        // Speak the result
+        if (settings.voiceEnabled) {
+          speakWithScottishVoice(text, {
+            rate: settings.voiceSpeed,
+            onDone: () => setAnimation("idle"),
+            onError: () => setAnimation("idle"),
+          });
+        } else {
+          setAnimation("idle");
+        }
       }
     } catch {
-      setAnalysisResult("I couldn't get a clear read on that. Mind trying another image?");
+      const errMsg = "I couldn't get a clear read on that. Mind trying another image?";
+      setAnalysisResult(errMsg);
+      setAnimation("idle");
     }
-  }, [capturedUri, analyzeImage, addMessage]);
+  }, [capturedUri, analyzeImage, addMessage, settings, setAnimation]);
 
   const handleReset = useCallback(() => {
     setCapturedUri(null);
@@ -97,7 +139,7 @@ export function CameraPanel({ onBack }: CameraPanelProps) {
               letterSpacing: 1,
             }}
           >
-            Camera
+            Camera Vision
           </Text>
         </View>
         <View style={{ width: 40 }} />
@@ -139,30 +181,55 @@ export function CameraPanel({ onBack }: CameraPanelProps) {
             />
           </View>
         ) : (
-          <Pressable
-            onPress={handlePickImage}
-            style={({ pressed }) => ({
-              width: "100%",
-              aspectRatio: 1.2,
-              borderRadius: 16,
-              borderCurve: "continuous",
-              borderWidth: 2,
-              borderStyle: "dashed",
-              borderColor: pressed ? Colors.primaryGlow : Colors.panelBorder,
-              backgroundColor: pressed ? "rgba(0, 229, 255, 0.05)" : "transparent",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-            })}
-          >
-            <Ionicons name="image-outline" size={48} color={Colors.textDim} />
-            <Text style={{ fontFamily: Fonts.medium, fontSize: 14, color: Colors.text }}>
-              Tap to pick an image
-            </Text>
-            <Text style={{ fontFamily: Fonts.regular, fontSize: 12, color: Colors.textDim }}>
-              {"I'll analyze whatever you show me"}
-            </Text>
-          </Pressable>
+          <View style={{ width: "100%", gap: 12 }}>
+            {/* Camera capture button */}
+            <Pressable
+              onPress={handleTakePhoto}
+              style={({ pressed }) => ({
+                width: "100%",
+                paddingVertical: 40,
+                borderRadius: 16,
+                borderCurve: "continuous",
+                borderWidth: 2,
+                borderColor: pressed ? Colors.primaryGlow : Colors.panelBorder,
+                backgroundColor: pressed ? "rgba(0, 229, 255, 0.05)" : "transparent",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+              })}
+            >
+              <Ionicons name="camera-outline" size={48} color={Colors.primaryGlow} />
+              <Text style={{ fontFamily: Fonts.medium, fontSize: 14, color: Colors.text }}>
+                Take a Photo
+              </Text>
+              <Text style={{ fontFamily: Fonts.regular, fontSize: 12, color: Colors.textDim }}>
+                {"Point your camera at something"}
+              </Text>
+            </Pressable>
+
+            {/* Image picker button */}
+            <Pressable
+              onPress={handlePickImage}
+              style={({ pressed }) => ({
+                width: "100%",
+                paddingVertical: 28,
+                borderRadius: 16,
+                borderCurve: "continuous",
+                borderWidth: 1,
+                borderStyle: "dashed",
+                borderColor: pressed ? Colors.primaryGlow : Colors.panelBorder,
+                backgroundColor: pressed ? "rgba(0, 229, 255, 0.05)" : "transparent",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+              })}
+            >
+              <Ionicons name="image-outline" size={32} color={Colors.textDim} />
+              <Text style={{ fontFamily: Fonts.medium, fontSize: 13, color: Colors.textDim }}>
+                Or pick from gallery
+              </Text>
+            </Pressable>
+          </View>
         )}
 
         {/* Action buttons */}
