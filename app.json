@@ -1,22 +1,35 @@
 {
   "expo": {
-    "name": "Here Is A",
-    "slug": "here-is-a-short-catchy-project-name-for-the",
+    "name": "XP",
+    "slug": "xp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "fastshot",
+    "scheme": "xp-companion",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.xp.companion",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "XP needs microphone access to hear your voice commands.",
+        "NSCameraUsageDescription": "XP needs camera access for visual analysis when you ask him to look.",
+        "NSPhotoLibraryUsageDescription": "XP needs photo library access to analyze images you share."
+      }
     },
     "android": {
+      "package": "com.xp.companion",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#10192b"
+        "backgroundColor": "#000814"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "RECORD_AUDIO",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "bundler": "metro",
