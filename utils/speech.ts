@@ -190,37 +190,50 @@ async function findBestVoice(): Promise<string | undefined> {
 
 /**
  * Speak text using the best available Scottish/British male voice.
- * Falls back gracefully if no suitable voice is found.
+ * Falls back gracefully if no suitable voice is found or TTS engine is unavailable.
  */
 export async function speakWithScottishVoice(
   text: string,
   options: SpeakOptions = {}
 ): Promise<void> {
-  const voiceId = await findBestVoice();
+  try {
+    const voiceId = await findBestVoice();
 
-  const speechOptions: Speech.SpeechOptions = {
-    language: "en-GB",
-    pitch: 0.95, // Slightly lower pitch for warm male voice
-    rate: options.rate ?? 0.95,
-    voice: voiceId || undefined,
-    onDone: options.onDone,
-    onError: options.onError ? () => options.onError?.() : undefined,
-    onStart: options.onStart,
-  };
+    const speechOptions: Speech.SpeechOptions = {
+      language: "en-GB",
+      pitch: 0.95, // Slightly lower pitch for warm male voice
+      rate: options.rate ?? 0.95,
+      voice: voiceId || undefined,
+      onDone: options.onDone,
+      onError: options.onError ? () => options.onError?.() : undefined,
+      onStart: options.onStart,
+    };
 
-  Speech.speak(text, speechOptions);
+    Speech.speak(text, speechOptions);
+  } catch {
+    // TTS engine unavailable — call onError callback so caller can update UI state
+    options.onError?.();
+  }
 }
 
 /**
  * Stop any current speech output.
  */
 export function stopSpeaking(): void {
-  Speech.stop();
+  try {
+    Speech.stop();
+  } catch {
+    // Silently handle — stopping speech should never crash the app
+  }
 }
 
 /**
  * Check if the system is currently speaking.
  */
 export async function checkIsSpeaking(): Promise<boolean> {
-  return Speech.isSpeakingAsync();
+  try {
+    return await Speech.isSpeakingAsync();
+  } catch {
+    return false;
+  }
 }

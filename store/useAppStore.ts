@@ -46,7 +46,7 @@ const generateId = (): string =>
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       // Initial XP state
       currentAnimation: "idle",
       currentMode: "idle",
