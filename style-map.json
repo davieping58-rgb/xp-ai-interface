@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": 1786147268409,
+  "generatedAt": 1786148705639,
   "entries": {
     "MemoryPanel@components/memory-panel.tsx:84": {
       "element": {
@@ -3217,26 +3217,6 @@
               "col": 58,
               "endCol": 60,
               "raw": "13"
-            }
-          }
-        }
-      ]
-    },
-    "RootLayout@app/_layout.tsx:26": {
-      "element": {
-        "file": "app/_layout.tsx",
-        "line": 26
-      },
-      "styles": [
-        {
-          "origin": "inline",
-          "file": "app/_layout.tsx",
-          "properties": {
-            "flex": {
-              "line": 26,
-              "col": 43,
-              "endCol": 44,
-              "raw": "1"
             }
           }
         }
@@ -8839,6 +8819,26 @@
               "col": 22,
               "endCol": 24,
               "raw": "17"
+            }
+          }
+        }
+      ]
+    },
+    "RootLayout@app/_layout.tsx:26": {
+      "element": {
+        "file": "app/_layout.tsx",
+        "line": 26
+      },
+      "styles": [
+        {
+          "origin": "inline",
+          "file": "app/_layout.tsx",
+          "properties": {
+            "flex": {
+              "line": 26,
+              "col": 43,
+              "endCol": 44,
+              "raw": "1"
             }
           }
         }
