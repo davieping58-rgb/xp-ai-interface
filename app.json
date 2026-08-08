@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Here Is A",
-    "slug": "here-is-a-short-catchy-project-name-for-the",
+    "name": "XP",
+    "slug": "xp-companion",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -48,11 +48,16 @@
           "resizeMode": "contain",
           "backgroundColor": "#000814"
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "XP needs microphone access to hear your voice commands."
+        }
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "baseUrl": "/31c9543f-48a7-478c-8d09-d618784213f9/dev-preview/"
+      "typedRoutes": true
     }
   }
 }
