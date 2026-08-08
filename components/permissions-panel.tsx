@@ -49,6 +49,80 @@ const DENIED_MESSAGES: Record<string, string> = {
     "I need storage access to save or load photos. You can change this in your device settings.",
 };
 
+/** Helpers extracted to reduce cognitive complexity of the main hook callbacks */
+
+async function checkImagePickerPermissions(): Promise<{
+  camera: PermissionStatus;
+  mediaLibrary: PermissionStatus;
+}> {
+  try {
+    const ImagePicker = await import("expo-image-picker");
+    const cameraResult = await ImagePicker.getCameraPermissionsAsync();
+    const mediaResult = await ImagePicker.getMediaLibraryPermissionsAsync();
+    return {
+      camera: cameraResult.granted
+        ? "granted"
+        : cameraResult.canAskAgain === false
+          ? "denied"
+          : "undetermined",
+      mediaLibrary: mediaResult.granted
+        ? "granted"
+        : mediaResult.canAskAgain === false
+          ? "denied"
+          : "undetermined",
+    };
+  } catch {
+    return { camera: "undetermined", mediaLibrary: "undetermined" };
+  }
+}
+
+async function checkMicrophonePermission(): Promise<PermissionStatus> {
+  if (Platform.OS === "web") {
+    try {
+      const result = await navigator.permissions.query({
+        name: "microphone" as PermissionName,
+      });
+      if (result.state === "granted") return "granted";
+      if (result.state === "denied") return "denied";
+      return "undetermined";
+    } catch {
+      return "undetermined";
+    }
+  }
+  try {
+    const ExpoAudio = await import("expo-audio");
+    const audioResult = await ExpoAudio.getRecordingPermissionsAsync();
+    return audioResult.granted
+      ? "granted"
+      : audioResult.canAskAgain === false
+        ? "denied"
+        : "undetermined";
+  } catch {
+    return "undetermined";
+  }
+}
+
+async function requestMicPermission(): Promise<PermissionStatus> {
+  if (Platform.OS === "web") {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      for (const track of stream.getTracks()) {
+        track.stop();
+      }
+      return "granted";
+    } catch {
+      return "denied";
+    }
+  }
+  try {
+    const ExpoAudio = await import("expo-audio");
+    const result = await ExpoAudio.requestRecordingPermissionsAsync();
+    return result.granted ? "granted" : "denied";
+  } catch {
+    return "denied";
+  }
+}
+
 export function PermissionsPanel({ onBack }: PermissionsPanelProps) {
   const [permissions, setPermissions] = useState<PermissionState>({
     microphone: "loading",
@@ -60,68 +134,11 @@ export function PermissionsPanel({ onBack }: PermissionsPanelProps) {
   const checkPermissions = useCallback(async () => {
     try {
       setError(null);
-
-      // Check camera and media library permissions via expo-image-picker
-      let cameraStatus: PermissionStatus = "undetermined";
-      let mediaStatus: PermissionStatus = "undetermined";
-
-      try {
-        const ImagePicker = await import("expo-image-picker");
-        const cameraResult = await ImagePicker.getCameraPermissionsAsync();
-        cameraStatus = cameraResult.granted
-          ? "granted"
-          : cameraResult.canAskAgain === false
-            ? "denied"
-            : "undetermined";
-
-        const mediaResult = await ImagePicker.getMediaLibraryPermissionsAsync();
-        mediaStatus = mediaResult.granted
-          ? "granted"
-          : mediaResult.canAskAgain === false
-            ? "denied"
-            : "undetermined";
-      } catch {
-        cameraStatus = "undetermined";
-        mediaStatus = "undetermined";
-      }
-
-      // Check microphone permission
-      let micStatus: PermissionStatus = "undetermined";
-
-      if (Platform.OS === "web") {
-        try {
-          const result = await navigator.permissions.query({
-            name: "microphone" as PermissionName,
-          });
-          if (result.state === "granted") {
-            micStatus = "granted";
-          } else if (result.state === "denied") {
-            micStatus = "denied";
-          } else {
-            micStatus = "undetermined";
-          }
-        } catch {
-          micStatus = "undetermined";
-        }
-      } else {
-        try {
-          const ExpoAudio = await import("expo-audio");
-          const audioResult = await ExpoAudio.getRecordingPermissionsAsync();
-          micStatus = audioResult.granted
-            ? "granted"
-            : audioResult.canAskAgain === false
-              ? "denied"
-              : "undetermined";
-        } catch {
-          micStatus = "undetermined";
-        }
-      }
-
-      setPermissions({
-        microphone: micStatus,
-        camera: cameraStatus,
-        mediaLibrary: mediaStatus,
-      });
+      const [micStatus, { camera, mediaLibrary }] = await Promise.all([
+        checkMicrophonePermission(),
+        checkImagePickerPermissions(),
+      ]);
+      setPermissions({ microphone: micStatus, camera, mediaLibrary });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to check permissions";
       setError(message);
@@ -133,32 +150,9 @@ export function PermissionsPanel({ onBack }: PermissionsPanelProps) {
   }, [checkPermissions]);
 
   const requestMicrophonePermission = useCallback(async () => {
-    try {
-      setPermissions((prev) => ({ ...prev, microphone: "loading" }));
-
-      if (Platform.OS === "web") {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach((track) => track.stop());
-          setPermissions((prev) => ({ ...prev, microphone: "granted" }));
-        } catch {
-          setPermissions((prev) => ({ ...prev, microphone: "denied" }));
-        }
-      } else {
-        try {
-          const ExpoAudio = await import("expo-audio");
-          const result = await ExpoAudio.requestRecordingPermissionsAsync();
-          setPermissions((prev) => ({
-            ...prev,
-            microphone: result.granted ? "granted" : "denied",
-          }));
-        } catch {
-          setPermissions((prev) => ({ ...prev, microphone: "denied" }));
-        }
-      }
-    } catch {
-      setPermissions((prev) => ({ ...prev, microphone: "denied" }));
-    }
+    setPermissions((prev) => ({ ...prev, microphone: "loading" }));
+    const status = await requestMicPermission();
+    setPermissions((prev) => ({ ...prev, microphone: status }));
   }, []);
 
   const requestCameraPermission = useCallback(async () => {
