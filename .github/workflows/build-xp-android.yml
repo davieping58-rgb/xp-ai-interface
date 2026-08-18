@@ -23,7 +23,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -50,4 +49,3 @@ jobs:
           name: XP-MOTHERSHIP-PHONE
           path: XP-MOTHERSHIP-PHONE.apk
           if-no-files-found: error
-# trigger: 2026-08-18
