@@ -1,0 +1,45 @@
+name: Build XP Windows
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or commit to build'
+        required: true
+        default: 'xp-pc-interface'
+  push:
+    branches: [xp-pc-interface]
+    paths: ['desktop/**','assets/xp_face.png','.github/workflows/build-xp-windows.yml']
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install
+        working-directory: desktop
+        run: npm install
+      - name: Verify required XP files and controls
+        shell: pwsh
+        run: |
+          if (!(Test-Path 'assets/xp_face.png')) { throw 'XP face missing' }
+          $html = Get-Content 'desktop/index.html' -Raw
+          $js = Get-Content 'desktop/renderer.js' -Raw
+          @('modes','memory','voice','vision','text','settings','system','wave','brainButton') | ForEach-Object { if (($html + $js) -notmatch $_) { throw "Missing control: $_" } }
+      - name: Build Windows installer
+        working-directory: desktop
+        run: npm run build:win
+      - name: Verify installer exists
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem 'desktop/dist' -Filter '*.exe' | Select-Object -First 1
+          if (!$exe) { throw 'Windows installer was not created' }
+          Write-Host "Verified installer: $($exe.FullName)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: XP-AI-Systems-Windows
+          path: desktop/dist/*.exe
+          if-no-files-found: error
