@@ -1,34 +1,33 @@
 name: Build XP Windows
 on:
   workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Branch or commit to build'
-        required: true
-        default: 'main'
   push:
-    branches: [main, xp-pc-interface]
+    branches: [main]
     paths: ['desktop/**','assets/xp_face.png','.github/workflows/build-xp-windows.yml']
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.ref || github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install
-        working-directory: desktop
-        run: npm install
-      - name: Verify required XP files and controls
+      - name: Copy approved XP face into desktop bundle
         shell: pwsh
         run: |
-          if (!(Test-Path 'assets/xp_face.png')) { throw 'XP face missing' }
+          New-Item -ItemType Directory -Force 'desktop/assets' | Out-Null
+          Copy-Item 'assets/xp_face.png' 'desktop/assets/xp_face.png' -Force
+          if (!(Test-Path 'desktop/assets/xp_face.png')) { throw 'XP face copy failed' }
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm install
+      - name: Verify XP interface requirements
+        shell: pwsh
+        run: |
           $html = Get-Content 'desktop/index.html' -Raw
           $js = Get-Content 'desktop/renderer.js' -Raw
-          @('modes','memory','voice','vision','text','settings','system','wave','brainButton') | ForEach-Object { if (($html + $js) -notmatch $_) { throw "Missing control: $_" } }
+          if ($html -notmatch 'assets/xp_face.png') { throw 'Packaged XP face path missing' }
+          @('modes','memory','voice','vision','text','settings','system','wave','brainButton','fullscreen') | ForEach-Object { if (($html + $js) -notmatch $_) { throw "Missing control: $_" } }
       - name: Build Windows installer
         working-directory: desktop
         run: npm run build:win
