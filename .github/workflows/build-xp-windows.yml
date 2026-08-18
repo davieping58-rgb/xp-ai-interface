@@ -5,9 +5,9 @@ on:
       ref:
         description: 'Branch or commit to build'
         required: true
-        default: 'xp-pc-interface'
+        default: 'main'
   push:
-    branches: [xp-pc-interface]
+    branches: [main, xp-pc-interface]
     paths: ['desktop/**','assets/xp_face.png','.github/workflows/build-xp-windows.yml']
 jobs:
   build:
