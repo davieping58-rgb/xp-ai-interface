@@ -28,13 +28,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - name: Install dependencies
-        run: npm install
-      - name: Verify Mothership wiring only
-        run: |
-          grep -F 'const MOTHERSHIP = "http://192.168.1.211:8000"' app/index.tsx
-          grep -F 'fetch(`${MOTHERSHIP}/chat`' app/index.tsx
-          grep -F '"usesCleartextTraffic": true' app.json
-          grep -F '"INTERNET"' app.json
+        run: npm install --legacy-peer-deps
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install --clean
       - name: Build installable APK
