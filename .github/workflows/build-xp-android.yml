@@ -50,3 +50,4 @@ jobs:
           name: XP-MOTHERSHIP-PHONE
           path: XP-MOTHERSHIP-PHONE.apk
           if-no-files-found: error
+# trigger: 2026-08-18
