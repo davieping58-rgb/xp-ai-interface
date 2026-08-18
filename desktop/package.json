@@ -1,0 +1,9 @@
+{
+  "name":"xp-ai-systems-desktop",
+  "version":"1.0.0",
+  "description":"XP AI Systems Windows interface",
+  "main":"main.js",
+  "scripts":{"start":"electron .","build:win":"electron-builder --win nsis --x64"},
+  "devDependencies":{"electron":"^37.2.0","electron-builder":"^26.0.12"},
+  "build":{"appId":"com.davie.xpaisystems","productName":"XP AI Systems","files":["**/*","../assets/xp_face.png"],"directories":{"output":"dist"},"win":{"target":["nsis"]},"nsis":{"oneClick":true,"perMachine":false,"createDesktopShortcut":true,"createStartMenuShortcut":true}}
+}
