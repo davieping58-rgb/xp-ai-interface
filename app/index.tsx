@@ -11,7 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/Colors";
 import { Fonts } from "@/constants/Typography";
-import { XP_SYSTEM_PROMPT, XP_INTRO_LINES } from "@/constants/XPPersonality";
+import { XP_INTRO_LINES } from "@/constants/XPPersonality";
 import { XPFace } from "@/components/xp-face";
 import { ControlPanel } from "@/components/control-panel";
 import { ModesPanel } from "@/components/modes-panel";
@@ -25,9 +25,11 @@ import { PrivacyPanel } from "@/components/privacy-panel";
 import { PermissionsPanel } from "@/components/permissions-panel";
 import { AboutPanel } from "@/components/about-panel";
 import { useAppStore } from "@/store/useAppStore";
-import { useTextGeneration, useAudioTranscription } from "@fastshot/ai";
+import { useAudioTranscription } from "@fastshot/ai";
 import { speakWithScottishVoice, stopSpeaking } from "@/utils/speech";
 import { startAudioRecording, stopAudioRecording } from "@/utils/audio-recorder";
+
+const MOTHERSHIP = "http://192.168.1.211:8000";
 
 type ActiveScreen =
   | "home"
@@ -47,8 +49,8 @@ export default function HomeScreen() {
   const [showPanel, setShowPanel] = useState(false);
   const [activeScreen, setActiveScreen] = useState<ActiveScreen>("home");
   const [introIndex] = useState(() => Math.floor(Math.random() * XP_INTRO_LINES.length));
+  const [isThinking, setIsThinking] = useState(false);
 
-  // Store state
   const subtitleText = useAppStore((s) => s.subtitleText);
   const setSubtitle = useAppStore((s) => s.setSubtitle);
   const isSpeaking = useAppStore((s) => s.isSpeaking);
@@ -58,14 +60,8 @@ export default function HomeScreen() {
   const setAnimation = useAppStore((s) => s.setAnimation);
   const addMessage = useAppStore((s) => s.addMessage);
   const settings = useAppStore((s) => s.settings);
-  const memories = useAppStore((s) => s.memories);
-  const conversations = useAppStore((s) => s.conversations);
-  const currentMode = useAppStore((s) => s.currentMode);
 
-  const { generateText, isLoading: isThinking } = useTextGeneration();
   const { transcribeAudio, isLoading: isTranscribing } = useAudioTranscription();
-
-  // Audio wave animation for mic
   const waveAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -92,25 +88,10 @@ export default function HomeScreen() {
     waveAnim.setValue(0);
   }, [isListening, waveAnim]);
 
-  // Set intro subtitle on mount
   useEffect(() => {
     setSubtitle(XP_INTRO_LINES[introIndex]);
   }, [introIndex, setSubtitle]);
 
-  // Shared: build prompt context from store state
-  const buildPromptContext = useCallback(() => {
-    const memoryContext =
-      memories.length > 0
-        ? `\n\nUser memories: ${memories.map((m) => m.content).join("; ")}`
-        : "";
-    const recentMessages = conversations
-      .slice(-6)
-      .map((m) => `${m.role}: ${m.content}`)
-      .join("\n");
-    return { memoryContext, recentMessages };
-  }, [memories, conversations]);
-
-  // Shared: speak XP response and update state
   const speakXpResponse = useCallback(
     (xpText: string) => {
       addMessage("xp", xpText);
@@ -120,60 +101,68 @@ export default function HomeScreen() {
       if (settings.voiceEnabled) {
         speakWithScottishVoice(xpText, {
           rate: settings.voiceSpeed,
-          onDone: () => { setIsSpeaking(false); setAnimation("idle"); },
-          onError: () => { setIsSpeaking(false); setAnimation("idle"); },
+          onDone: () => {
+            setIsSpeaking(false);
+            setAnimation("idle");
+          },
+          onError: () => {
+            setIsSpeaking(false);
+            setAnimation("idle");
+          },
         });
       } else {
-        setTimeout(() => { setIsSpeaking(false); setAnimation("idle"); }, 2000);
+        setTimeout(() => {
+          setIsSpeaking(false);
+          setAnimation("idle");
+        }, 2000);
       }
     },
     [addMessage, setSubtitle, setAnimation, setIsSpeaking, settings]
   );
 
-  // Process transcribed text through AI and respond
-  const processUserMessage = useCallback(async (userText: string) => {
-    try {
-      addMessage("user", userText);
+  const processUserMessage = useCallback(
+    async (userText: string) => {
+      const clean = userText.trim();
+      if (!clean) return;
+
+      addMessage("user", clean);
       setAnimation("thinking");
-      setSubtitle("Thinking...");
+      setSubtitle("Mothership...");
+      setIsThinking(true);
 
-      const { memoryContext, recentMessages } = buildPromptContext();
-      const prompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nuser: ${userText}\nxp:`;
-      const response = await generateText(prompt);
-      if (response) {
-        speakXpResponse(typeof response === "string" ? response : String(response));
-      } else {
-        setSubtitle("Hmm, I lost my train of thought. Try again?");
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        const response = await fetch(`${MOTHERSHIP}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: clean }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+          throw new Error(`Mothership returned ${response.status}`);
+        }
+
+        const data = await response.json();
+        const reply = data?.reply || data?.response || data?.message;
+        if (!reply || typeof reply !== "string") {
+          throw new Error("Mothership response did not contain a reply");
+        }
+
+        speakXpResponse(reply);
+      } catch (error) {
+        setSubtitle("Mothership connection failed");
         setAnimation("idle");
+      } finally {
+        setIsThinking(false);
       }
-    } catch {
-      setSubtitle("Something went wrong. Give it another go.");
-      setAnimation("idle");
-    }
-  }, [addMessage, buildPromptContext, currentMode, generateText, speakXpResponse, setSubtitle, setAnimation]);
+    },
+    [addMessage, setAnimation, setSubtitle, speakXpResponse]
+  );
 
-  // Handle fallback when transcription fails or returns empty
-  const handleFallbackResponse = useCallback(async () => {
-    setAnimation("thinking");
-    setSubtitle("Thinking...");
-    const { memoryContext, recentMessages } = buildPromptContext();
-    const prompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nThe user just spoke to you. Respond naturally and briefly, acknowledging them.`;
-    try {
-      const response = await generateText(prompt);
-      if (response) speakXpResponse(typeof response === "string" ? response : String(response));
-      else {
-        setSubtitle("Ready when you are.");
-        setAnimation("idle");
-      }
-    } catch {
-      setSubtitle("Something went wrong. Give it another go.");
-      setAnimation("idle");
-    }
-  }, [buildPromptContext, currentMode, generateText, speakXpResponse, setSubtitle, setAnimation]);
-
-  // Mic press handler — start/stop recording
   const handleMicPress = useCallback(async () => {
-    // If XP is speaking, stop him
     if (isSpeaking) {
       stopSpeaking();
       setIsSpeaking(false);
@@ -181,7 +170,6 @@ export default function HomeScreen() {
       return;
     }
 
-    // If currently listening, stop and process
     if (isListening) {
       setIsListening(false);
       setAnimation("thinking");
@@ -189,42 +177,44 @@ export default function HomeScreen() {
 
       try {
         const audioUri = await stopAudioRecording();
+        if (!audioUri) {
+          setSubtitle("I didn't catch that.");
+          setAnimation("idle");
+          return;
+        }
 
-        if (audioUri) {
-          // Transcribe the audio
-          const transcription = await transcribeAudio({ audioUri, language: "en" });
-
-          if (transcription && typeof transcription === "string" && transcription.trim().length > 0) {
-            // Successfully transcribed — process the message
-            await processUserMessage(transcription.trim());
-          } else {
-            // Transcription empty — respond naturally
-            await handleFallbackResponse();
-          }
+        const transcription = await transcribeAudio({ audioUri, language: "en" });
+        if (typeof transcription === "string" && transcription.trim()) {
+          await processUserMessage(transcription.trim());
         } else {
-          // No audio URI returned — respond with fallback
-          await handleFallbackResponse();
+          setSubtitle("I didn't catch that.");
+          setAnimation("idle");
         }
       } catch {
-        // Transcription failed — respond naturally
-        await handleFallbackResponse();
-      }
-    } else {
-      // Start recording
-      const started = await startAudioRecording();
-      if (started) {
-        setIsListening(true);
-        setAnimation("listening");
-        setSubtitle("I'm listening...");
-      } else {
-        setSubtitle("Mic not available. Try text input instead.");
+        setSubtitle("I couldn't hear that properly.");
         setAnimation("idle");
       }
+      return;
+    }
+
+    const started = await startAudioRecording();
+    if (started) {
+      setIsListening(true);
+      setAnimation("listening");
+      setSubtitle("I'm listening...");
+    } else {
+      setSubtitle("Mic not available.");
+      setAnimation("idle");
     }
   }, [
-    isSpeaking, isListening,
-    setIsSpeaking, setIsListening, setAnimation, setSubtitle,
-    transcribeAudio, processUserMessage, handleFallbackResponse,
+    isSpeaking,
+    isListening,
+    setIsSpeaking,
+    setIsListening,
+    setAnimation,
+    setSubtitle,
+    transcribeAudio,
+    processUserMessage,
   ]);
 
   const handleStopSpeaking = useCallback(() => {
@@ -234,48 +224,27 @@ export default function HomeScreen() {
     setSubtitle("");
   }, [setIsSpeaking, setAnimation, setSubtitle]);
 
-  const handleOpenPanel = useCallback(() => {
-    setShowPanel(true);
-  }, []);
-
-  const handleClosePanel = useCallback(() => {
-    setShowPanel(false);
-  }, []);
-
+  const handleOpenPanel = useCallback(() => setShowPanel(true), []);
+  const handleClosePanel = useCallback(() => setShowPanel(false), []);
   const handleNavigate = useCallback((screen: string) => {
     setShowPanel(false);
     setActiveScreen(screen as ActiveScreen);
   }, []);
+  const handleBack = useCallback(() => setActiveScreen("home"), []);
 
-  const handleBack = useCallback(() => {
-    setActiveScreen("home");
-  }, []);
-
-  // Render active sub-screen
   if (activeScreen !== "home") {
     switch (activeScreen) {
-      case "modes":
-        return <ModesPanel onBack={handleBack} />;
-      case "memory":
-        return <MemoryPanel onBack={handleBack} />;
-      case "history":
-        return <HistoryPanel onBack={handleBack} />;
-      case "settings":
-        return <SettingsPanel onBack={handleBack} />;
-      case "voice":
-        return <VoicePanel onBack={handleBack} />;
-      case "camera":
-        return <CameraPanel onBack={handleBack} />;
-      case "text":
-        return <TextInputPanel onBack={handleBack} />;
-      case "permissions":
-        return <PermissionsPanel onBack={handleBack} />;
-      case "privacy":
-        return <PrivacyPanel onBack={handleBack} />;
-      case "about":
-        return <AboutPanel onBack={handleBack} />;
-      default:
-        return null;
+      case "modes": return <ModesPanel onBack={handleBack} />;
+      case "memory": return <MemoryPanel onBack={handleBack} />;
+      case "history": return <HistoryPanel onBack={handleBack} />;
+      case "settings": return <SettingsPanel onBack={handleBack} />;
+      case "voice": return <VoicePanel onBack={handleBack} />;
+      case "camera": return <CameraPanel onBack={handleBack} />;
+      case "text": return <TextInputPanel onBack={handleBack} />;
+      case "permissions": return <PermissionsPanel onBack={handleBack} />;
+      case "privacy": return <PrivacyPanel onBack={handleBack} />;
+      case "about": return <AboutPanel onBack={handleBack} />;
+      default: return null;
     }
   }
 
@@ -288,7 +257,6 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      {/* Options button - top right */}
       <Pressable
         onPress={handleOpenPanel}
         style={{
@@ -309,18 +277,15 @@ export default function HomeScreen() {
         <Ionicons name="ellipsis-vertical" size={16} color={Colors.primaryGlow} />
       </Pressable>
 
-      {/* XP Face — full-screen background layer */}
       <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 }}>
         <XPFace />
       </View>
 
-      {/* Tap area over face to open control panel */}
       <Pressable
         onPress={handleOpenPanel}
         style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 140, zIndex: 1 }}
       />
 
-      {/* Bottom section - subtitle + controls */}
       <View
         style={{
           position: "absolute",
@@ -333,7 +298,6 @@ export default function HomeScreen() {
           zIndex: 10,
         }}
       >
-        {/* Audio wave visualization when listening */}
         {isListening && (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 2, height: 20 }}>
             {Array.from({ length: 7 }).map((_, i) => (
@@ -345,54 +309,33 @@ export default function HomeScreen() {
                   borderRadius: 1.5,
                   backgroundColor: Colors.primaryGlow,
                   opacity: 0.6,
-                  transform: [
-                    {
-                      scaleY: waveAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [
-                          0.3 + Math.sin(i * 0.9) * 0.3,
-                          0.7 + Math.cos(i * 0.7) * 0.5,
-                        ],
-                      }),
-                    },
-                  ],
+                  transform: [{
+                    scaleY: waveAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [
+                        0.3 + Math.sin(i * 0.9) * 0.3,
+                        0.7 + Math.cos(i * 0.7) * 0.5,
+                      ],
+                    }),
+                  }],
                 }}
               />
             ))}
           </View>
         )}
 
-        {/* Subtitle text */}
         <View style={{ paddingHorizontal: 40, minHeight: 40 }}>
-          <Text
-            style={{
-              fontFamily: Fonts.medium,
-              fontSize: 16,
-              color: Colors.text,
-              textAlign: "center",
-              lineHeight: 22,
-            }}
-          >
+          <Text style={{ fontFamily: Fonts.medium, fontSize: 16, color: Colors.text, textAlign: "center", lineHeight: 22 }}>
             {subtitleText.split("\n")[0]}
           </Text>
           {subtitleText.split("\n")[1] && (
-            <Text
-              style={{
-                fontFamily: Fonts.light,
-                fontSize: 13,
-                color: Colors.textDim,
-                textAlign: "center",
-                marginTop: 2,
-              }}
-            >
+            <Text style={{ fontFamily: Fonts.light, fontSize: 13, color: Colors.textDim, textAlign: "center", marginTop: 2 }}>
               {subtitleText.split("\n")[1]}
             </Text>
           )}
         </View>
 
-        {/* Control buttons */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 20 }}>
-          {/* Mic button */}
           <Animated.View style={{ transform: [{ scale: isListening ? micScale : 1 }] }}>
             <Pressable
               onPress={handleMicPress}
@@ -415,16 +358,11 @@ export default function HomeScreen() {
               {isProcessing ? (
                 <ActivityIndicator size="small" color={Colors.primaryGlow} />
               ) : (
-                <Ionicons
-                  name={isListening ? "mic" : "mic-outline"}
-                  size={28}
-                  color={Colors.primaryGlow}
-                />
+                <Ionicons name={isListening ? "mic" : "mic-outline"} size={28} color={Colors.primaryGlow} />
               )}
             </Pressable>
           </Animated.View>
 
-          {/* Stop button - only when speaking */}
           {isSpeaking && (
             <Pressable
               onPress={handleStopSpeaking}
@@ -445,7 +383,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Holographic Control Panel overlay */}
       <ControlPanel visible={showPanel} onClose={handleClosePanel} onNavigate={handleNavigate} />
     </View>
   );
