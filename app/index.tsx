@@ -30,6 +30,7 @@ import { speakWithScottishVoice, stopSpeaking } from "@/utils/speech";
 import { startAudioRecording, stopAudioRecording } from "@/utils/audio-recorder";
 
 const MOTHERSHIP = "http://192.168.1.211:8000";
+const MOTHERSHIP_TIMEOUT_MS = 2500;
 
 type ActiveScreen =
   | "home"
@@ -43,6 +44,29 @@ type ActiveScreen =
   | "permissions"
   | "privacy"
   | "about";
+
+function localXpFallback(userText: string) {
+  const clean = userText.trim();
+  const lower = clean.toLowerCase();
+
+  if (/^(hi|hello|hey|awright|alright)\b/.test(lower)) {
+    return "Awright, Davie. I'm here. Mothership's not needed for me to talk to you.";
+  }
+  if (lower.includes("who are you")) {
+    return "I'm XP. Same pal, same voice. The Mothership gives me the bigger brain when it's there, but I can still talk when it isn't.";
+  }
+  if (lower.includes("mothership") || lower.includes("core")) {
+    return "The Mothership link isn't available just now, but I'm still here and talking. I'll use the core again automatically when it comes back.";
+  }
+  if (lower.includes("are you there") || lower.includes("can you hear me")) {
+    return "Aye, Davie. I can hear you and I'm here.";
+  }
+  if (lower.includes("thank")) {
+    return "Aye, mate. I'm with you.";
+  }
+
+  return `Aye, Davie. I heard you: ${clean}. The Mothership link is down just now, but I'm still here and talking.`;
+}
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -130,16 +154,16 @@ export default function HomeScreen() {
       setSubtitle("Mothership...");
       setIsThinking(true);
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), MOTHERSHIP_TIMEOUT_MS);
+
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
         const response = await fetch(`${MOTHERSHIP}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: clean }),
           signal: controller.signal,
         });
-        clearTimeout(timeout);
 
         if (!response.ok) {
           throw new Error(`Mothership returned ${response.status}`);
@@ -152,10 +176,10 @@ export default function HomeScreen() {
         }
 
         speakXpResponse(reply);
-      } catch (error) {
-        setSubtitle("Mothership connection failed");
-        setAnimation("idle");
+      } catch {
+        speakXpResponse(localXpFallback(clean));
       } finally {
+        clearTimeout(timeout);
         setIsThinking(false);
       }
     },
