@@ -4,6 +4,6 @@
   "private": true,
   "main": "index.js",
   "scripts": {"start":"expo start","android":"expo run:android","doctor":"npx expo-doctor@latest","prebuild":"expo prebuild"},
-  "dependencies": {"@expo/vector-icons":"^15.0.0","expo":"^54.0.0","expo-status-bar":"~3.0.0","react":"19.1.0","react-native":"0.81.4","react-native-qrcode-svg":"^6.3.15","react-native-svg":"15.12.1"},
+  "dependencies": {"@expo/vector-icons":"^15.0.0","expo":"^54.0.0","expo-status-bar":"~3.0.0","react":"19.1.0","react-native":"0.81.5","react-native-qrcode-svg":"^6.3.15","react-native-svg":"15.12.1"},
   "devDependencies": {"@babel/core":"^7.25.2"}
 }
