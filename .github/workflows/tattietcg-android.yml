@@ -26,6 +26,28 @@ jobs:
       - run: npx expo prebuild --platform android --clean
       - name: Build APK
         run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - name: Boot Android and prove the app stays open
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          working-directory: tattietcg
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb logcat -c
+            adb shell monkey -p uk.domhnall.tattietcg -c android.intent.category.LAUNCHER 1
+            sleep 10
+            PID=$(adb shell pidof uk.domhnall.tattietcg | tr -d '\r')
+            echo "TattieTCG PID: $PID"
+            test -n "$PID"
+            adb shell dumpsys activity activities | grep -q 'uk.domhnall.tattietcg'
+            if adb logcat -d '*:E' | grep -E 'FATAL EXCEPTION|Process: uk.domhnall.tattietcg' ; then
+              echo 'Runtime crash detected'
+              exit 1
+            fi
+            echo 'RUNTIME_SMOKE_TEST_PASS'
       - run: cp android/app/build/outputs/apk/debug/app-debug.apk TattieTCG.apk
       - uses: actions/upload-artifact@v4
         with:
