@@ -16,8 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: tattietcg/package-lock.json
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -32,7 +30,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm || true
           sudo chmod 666 /dev/kvm || true
           ls -l /dev/kvm || true
-      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
       - run: npx expo install --check
       - run: npx expo prebuild --platform android
       - name: Build APK
