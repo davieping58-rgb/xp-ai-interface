@@ -53,9 +53,13 @@ jobs:
             sleep 12
             PID=$(adb shell pidof uk.domhnall.tattietcg | tr -d '\r')
             echo "TattieTCG PID: $PID"
-            test -n "$PID"
-            adb shell dumpsys activity activities | grep -q 'uk.domhnall.tattietcg'
-            if adb logcat -d | grep -A8 -B3 'FATAL EXCEPTION' | grep -q 'uk.domhnall.tattietcg'; then
+            adb shell dumpsys activity activities | grep 'uk.domhnall.tattietcg' || true
+            adb logcat -d | grep -A30 -B10 -E 'FATAL EXCEPTION|AndroidRuntime|uk.domhnall.tattietcg|ReactNativeJS' || true
+            if [ -z "$PID" ]; then
+              echo 'APP_NOT_RUNNING_AFTER_LAUNCH'
+              exit 1
+            fi
+            if adb logcat -d | grep -A12 -B3 'FATAL EXCEPTION' | grep -q 'uk.domhnall.tattietcg'; then
               echo 'Runtime crash detected'
               exit 1
             fi
