@@ -55,14 +55,8 @@ jobs:
             echo "TattieTCG PID: $PID"
             adb shell dumpsys activity activities | grep 'uk.domhnall.tattietcg' || true
             adb logcat -d | grep -A30 -B10 -E 'FATAL EXCEPTION|AndroidRuntime|uk.domhnall.tattietcg|ReactNativeJS' || true
-            if [ -z "$PID" ]; then
-              echo 'APP_NOT_RUNNING_AFTER_LAUNCH'
-              exit 1
-            fi
-            if adb logcat -d | grep -A12 -B3 'FATAL EXCEPTION' | grep -q 'uk.domhnall.tattietcg'; then
-              echo 'Runtime crash detected'
-              exit 1
-            fi
+            test -n "$PID" || (echo 'APP_NOT_RUNNING_AFTER_LAUNCH' && exit 1)
+            ! adb logcat -d | grep -A12 -B3 'FATAL EXCEPTION' | grep -q 'uk.domhnall.tattietcg' || (echo 'Runtime crash detected' && exit 1)
             echo 'RUNTIME_SMOKE_TEST_PASS'
       - run: cp android/app/build/outputs/apk/debug/app-debug.apk TattieTCG.apk
       - uses: actions/upload-artifact@v4
