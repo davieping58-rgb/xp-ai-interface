@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name":"TattieTCG","slug":"tattietcg","version":"1.0.0","orientation":"portrait","userInterfaceStyle":"dark",
+    "name":"TattieTCG","slug":"tattietcg","version":"1.0.1","orientation":"portrait","userInterfaceStyle":"dark",
     "android":{"package":"uk.domhnall.tattietcg"},
     "ios":{"supportsTablet":true,"bundleIdentifier":"uk.domhnall.tattietcg"}
   }
