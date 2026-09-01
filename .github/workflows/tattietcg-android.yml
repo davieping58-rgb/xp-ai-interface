@@ -59,7 +59,10 @@ jobs:
             adb logcat -c
             adb shell monkey -p uk.domhnall.tattietcg -c android.intent.category.LAUNCHER 1
             sleep 15
-            PID=$(adb shell ps -A | awk '$9=="uk.domhnall.tattietcg" {print $2; exit}' | tr -d '\r')
+            PID=$(adb shell pidof uk.domhnall.tattietcg 2>/dev/null | tr -d '\r' | tr -d '\n')
+            if [ -z "$PID" ]; then
+              PID=$(adb shell ps -A | grep 'uk.domhnall.tattietcg' | head -n1 | awk '{print $2}' | tr -d '\r')
+            fi
             echo "TattieTCG PID: $PID"
             adb shell dumpsys activity activities | grep 'uk.domhnall.tattietcg' || true
             adb shell uiautomator dump /sdcard/tattie.xml >/dev/null || true
