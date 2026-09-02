@@ -1,0 +1,30 @@
+name: Tattie Agent Smoke Test
+on:
+  push:
+    branches: [tattietcg-android]
+    paths:
+      - 'api/tattie/**'
+      - '.github/workflows/tattie-agent-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel preview
+        run: sleep 45
+      - name: Health check
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --retry 5 --retry-delay 10 \
+            https://xp-ai-interface-git-tattietcg-android-davie4.vercel.app/api/tattie/health | tee health.json
+          grep -q '"ok":true' health.json
+      - name: Real Wee Tattie reply
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --retry 2 --retry-delay 10 \
+            -X POST https://xp-ai-interface-git-tattietcg-android-davie4.vercel.app/api/tattie/chat \
+            -H 'Content-Type: application/json' \
+            -d '{"message":"Say hello in one short sentence and tell me your name.","history":[]}' | tee chat.json
+          grep -q '"reply"' chat.json
+          grep -qi 'tattie' chat.json
