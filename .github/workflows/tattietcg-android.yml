@@ -35,7 +35,9 @@ jobs:
           grep -q "CARD SCANNER" src/App.js
           grep -q "CameraView" src/App.js
           grep -q "Speech.speak" src/App.js
-          grep -q "WEE TATTIE ONLINE" src/App.js
+          grep -q "WEE TATTIE AI ONLINE" src/App.js
+          grep -q "WEE TATTIE AI" src/App.js
+          grep -q "AGENT_URL" src/App.js
           grep -q "LAST 5 SALES" src/App.js
           grep -q "https://tattie-tcg.myshopify.com" src/App.js
           grep -q "QRCode" src/App.js
@@ -71,7 +73,7 @@ jobs:
             adb shell dumpsys activity activities | grep -q 'ResumedActivity:.*uk.domhnall.tattietcg/.MainActivity' || (echo 'TATTIE_NOT_RESUMED_AFTER_LAUNCH' && exit 1)
             adb shell uiautomator dump /sdcard/tattie.xml >/dev/null || true
             adb shell cat /sdcard/tattie.xml | grep -q 'CARD SCANNER' || (echo 'FINAL_HOME_CARD_SCANNER_NOT_VISIBLE' && exit 1)
-            adb shell cat /sdcard/tattie.xml | grep -q 'WEE TATTIE ONLINE' || (echo 'FINAL_HOME_WEE_TATTIE_NOT_VISIBLE' && exit 1)
+            adb shell cat /sdcard/tattie.xml | grep -q 'WEE TATTIE AI ONLINE' || (echo 'FINAL_HOME_WEE_TATTIE_NOT_VISIBLE' && exit 1)
             adb exec-out screencap -p > final-home.png
             test -s final-home.png || (echo 'FINAL_HOME_SCREENSHOT_MISSING' && exit 1)
             ! adb logcat -d | grep -A12 -B3 'FATAL EXCEPTION' | grep -q 'uk.domhnall.tattietcg' || (echo 'Runtime crash detected' && exit 1)
