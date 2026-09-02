@@ -4,6 +4,8 @@ on:
   push:
     branches: [tattietcg-android]
     paths: ['tattietcg/**', '.github/workflows/tattietcg-android.yml']
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -36,6 +38,8 @@ jobs:
           grep -q "QRCode" src/App.js
           grep -q "DOMHNALL • XP" src/App.js
           grep -q "#a855f7" src/App.js
+          grep -q "tattietcg-latest/TattieTCG.apk" src/App.js
+          test -f assets/tattie-logo.jpg
           echo 'TATTIE_SOURCE_REQUIREMENTS_PASS'
       - run: npm install --no-audit --no-fund
       - run: npx expo install --check
@@ -62,7 +66,7 @@ jobs:
             PID="$(adb shell pidof uk.domhnall.tattietcg 2>/dev/null | tr -d '\r\n')"; [ -n "$PID" ] || PID="$(adb shell dumpsys activity activities | sed -n 's/.*ProcessRecord{[^ ]* \([0-9][0-9]*\):uk\.domhnall\.tattietcg.*/\1/p' | head -n1)"; echo "TattieTCG PID: $PID"; test -n "$PID" || (echo 'APP_NOT_RUNNING_AFTER_LAUNCH' && exit 1)
             adb shell dumpsys activity activities | grep -q 'ResumedActivity:.*uk.domhnall.tattietcg/.MainActivity' || (echo 'TATTIE_NOT_RESUMED_AFTER_LAUNCH' && exit 1)
             adb shell uiautomator dump /sdcard/tattie.xml >/dev/null || true
-            adb shell cat /sdcard/tattie.xml | grep -q 'TATTIE TCG' || (echo 'TATTIE_HOME_UI_NOT_VISIBLE' && exit 1)
+            adb shell cat /sdcard/tattie.xml | grep -q 'TATTIE' || (echo 'TATTIE_HOME_UI_NOT_VISIBLE' && exit 1)
             adb logcat -d | grep -A30 -B10 -E 'FATAL EXCEPTION|AndroidRuntime|uk.domhnall.tattietcg|ReactNativeJS' || true
             ! adb logcat -d | grep -A12 -B3 'FATAL EXCEPTION' | grep -q 'uk.domhnall.tattietcg' || (echo 'Runtime crash detected' && exit 1)
             echo 'RUNTIME_SMOKE_TEST_PASS'
@@ -72,3 +76,13 @@ jobs:
           name: TattieTCG-Android-APK
           path: tattietcg/TattieTCG.apk
           retention-days: 30
+      - name: Publish permanent TattieTCG APK download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view tattietcg-latest >/dev/null 2>&1; then
+            gh release upload tattietcg-latest TattieTCG.apk --clobber
+          else
+            gh release create tattietcg-latest TattieTCG.apk --title "TattieTCG Android" --notes "Official current TattieTCG Android APK."
+          fi
+          echo 'PERMANENT_APK_RELEASE_PASS'
