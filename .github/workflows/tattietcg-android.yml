@@ -30,6 +30,12 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
           sudo chmod 666 /dev/kvm || true
+      - name: Rebuild clean Wee Tattie image
+        run: |
+          base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
+          test -s assets/wee-tattie-home.jpg
+          file assets/wee-tattie-home.jpg | grep -q 'JPEG image data'
+          echo 'WEE_TATTIE_IMAGE_REBUILT_PASS'
       - name: Verify final Tattie source before build
         run: |
           grep -q "CARD SCANNER" src/App.js
