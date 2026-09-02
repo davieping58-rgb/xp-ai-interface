@@ -72,8 +72,16 @@ jobs:
             adb shell uiautomator dump /sdcard/tattie.xml >/dev/null || true
             adb shell cat /sdcard/tattie.xml | grep -q 'CARD SCANNER' || (echo 'FINAL_HOME_CARD_SCANNER_NOT_VISIBLE' && exit 1)
             adb shell cat /sdcard/tattie.xml | grep -q 'WEE TATTIE ONLINE' || (echo 'FINAL_HOME_WEE_TATTIE_NOT_VISIBLE' && exit 1)
+            adb exec-out screencap -p > final-home.png
+            test -s final-home.png || (echo 'FINAL_HOME_SCREENSHOT_MISSING' && exit 1)
             ! adb logcat -d | grep -A12 -B3 'FATAL EXCEPTION' | grep -q 'uk.domhnall.tattietcg' || (echo 'Runtime crash detected' && exit 1)
             echo 'RUNTIME_FINAL_HOME_PASS'
+      - name: Upload final home screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: TattieTCG-Final-Home-Screenshot
+          path: tattietcg/final-home.png
+          retention-days: 30
       - run: cp android/app/build/outputs/apk/release/app-release.apk TattieTCG-Launch.apk
       - uses: actions/upload-artifact@v4
         with:
