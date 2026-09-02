@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Copy approved XP face into desktop bundle
         shell: pwsh
         run: |
@@ -26,8 +26,15 @@ jobs:
         run: |
           $html = Get-Content 'desktop/index.html' -Raw
           $js = Get-Content 'desktop/renderer.js' -Raw
-          if ($html -notmatch 'assets/xp_face.png') { throw 'Packaged XP face path missing' }
-          @('modes','memory','voice','vision','text','settings','system','wave','brainButton','fullscreen') | ForEach-Object { if (($html + $js) -notmatch $_) { throw "Missing control: $_" } }
+          if ($html -notmatch 'src="assets/xp_face.png"') { throw 'Packaged XP face path missing' }
+          @('modes','memory','voice','vision','text','settings','system','brainButton','fullscreen','cameraOn','coreInput','attach','send') | ForEach-Object { if (($html + $js) -notmatch $_) { throw "Missing control: $_" } }
+      - name: JavaScript syntax check
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          node --check main.js
+          node --check preload.js
+          node --check renderer.js
       - name: Build Windows installer
         working-directory: desktop
         run: npm run build:win
