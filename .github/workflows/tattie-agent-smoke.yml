@@ -21,9 +21,11 @@ jobs:
       - name: Real Wee Tattie reply
         run: |
           set -euo pipefail
-          curl --fail --show-error --silent --retry 2 --retry-delay 10 \
+          curl --show-error --silent --retry 2 --retry-delay 10 \
             -X POST https://xp-ai-interface.vercel.app/api/tattie/chat \
             -H 'Content-Type: application/json' \
+            -H 'X-Tattie-Debug: 1' \
             -d '{"message":"Say hello in one short sentence and tell me your name.","history":[]}' | tee chat.json
+          cat chat.json
           grep -q '"reply"' chat.json
           grep -qi 'tattie' chat.json
