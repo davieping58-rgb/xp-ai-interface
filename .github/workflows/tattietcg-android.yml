@@ -76,7 +76,6 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
           working-directory: tattietcg
           script: |
-            set -eu
             adb install -r android/app/build/outputs/apk/release/app-release.apk
             adb logcat -c
             adb shell monkey -p uk.domhnall.tattietcg -c android.intent.category.LAUNCHER 1
@@ -87,43 +86,12 @@ jobs:
             adb shell cat /sdcard/tattie.xml | grep -q 'CARD SCANNER' || (echo 'FINAL_HOME_CARD_SCANNER_NOT_VISIBLE' && exit 1)
             adb shell cat /sdcard/tattie.xml | grep -q 'WEE TATTIE AI ONLINE' || (echo 'FINAL_HOME_WEE_TATTIE_NOT_VISIBLE' && exit 1)
             adb exec-out screencap -p > final-home.png
-            python3 - <<'PY'
-            import re, subprocess, xml.etree.ElementTree as ET
-            xml=subprocess.check_output(['adb','shell','cat','/sdcard/tattie.xml'],text=True)
-            root=ET.fromstring(xml)
-            target='WEE TATTIE AI ONLINE'
-            for n in root.iter('node'):
-                if n.attrib.get('text')==target:
-                    b=list(map(int,re.findall(r'\d+',n.attrib['bounds'])))
-                    subprocess.check_call(['adb','shell','input','tap',str((b[0]+b[2])//2),str((b[1]+b[3])//2)])
-                    break
-            else: raise SystemExit('WEE_TATTIE_HOME_TAP_TARGET_MISSING')
-            PY
+            python3 -c "import re,subprocess,sys,xml.etree.ElementTree as ET; root=ET.fromstring(subprocess.check_output(['adb','shell','cat','/sdcard/tattie.xml'],text=True)); n=next((x for x in root.iter('node') if x.attrib.get('text')=='WEE TATTIE AI ONLINE'),None); n is not None or sys.exit('WEE_TATTIE_HOME_TAP_TARGET_MISSING'); b=list(map(int,re.findall(r'\\d+',n.attrib['bounds']))); subprocess.check_call(['adb','shell','input','tap',str((b[0]+b[2])//2),str((b[1]+b[3])//2)])"
             sleep 3
             adb shell uiautomator dump /sdcard/tattie-chat.xml >/dev/null
             adb shell cat /sdcard/tattie-chat.xml | grep -q 'WEE TATTIE READY' || (echo 'WEE_TATTIE_CHAT_NOT_OPEN' && exit 1)
-            python3 - <<'PY'
-            import re, subprocess, xml.etree.ElementTree as ET
-            xml=subprocess.check_output(['adb','shell','cat','/sdcard/tattie-chat.xml'],text=True)
-            root=ET.fromstring(xml)
-            target='Tell me a Tattie joke'
-            for n in root.iter('node'):
-                if n.attrib.get('text')==target:
-                    b=list(map(int,re.findall(r'\d+',n.attrib['bounds'])))
-                    subprocess.check_call(['adb','shell','input','tap',str((b[0]+b[2])//2),str((b[1]+b[3])//2)])
-                    break
-            else: raise SystemExit('WEE_TATTIE_TEST_CHIP_MISSING')
-            PY
-            PASS=0
-            for i in $(seq 1 12); do
-              sleep 5
-              adb shell uiautomator dump /sdcard/tattie-reply.xml >/dev/null || true
-              XML="$(adb shell cat /sdcard/tattie-reply.xml 2>/dev/null || true)"
-              if echo "$XML" | grep -q 'Och, my AI line dropped'; then echo 'WEE_TATTIE_REAL_AI_REPLY_FAILED'; exit 1; fi
-              COUNT="$(printf '%s' "$XML" | grep -o 'Tell me a Tattie joke' | wc -l | tr -d ' ')"
-              if echo "$XML" | grep -q 'WEE TATTIE READY' && [ "${COUNT:-0}" -ge 2 ]; then PASS=1; break; fi
-            done
-            [ "$PASS" = 1 ] || (echo 'WEE_TATTIE_REAL_AI_REPLY_TIMEOUT' && exit 1)
+            python3 -c "import re,subprocess,sys,xml.etree.ElementTree as ET; root=ET.fromstring(subprocess.check_output(['adb','shell','cat','/sdcard/tattie-chat.xml'],text=True)); n=next((x for x in root.iter('node') if x.attrib.get('text')=='Tell me a Tattie joke'),None); n is not None or sys.exit('WEE_TATTIE_TEST_CHIP_MISSING'); b=list(map(int,re.findall(r'\\d+',n.attrib['bounds']))); subprocess.check_call(['adb','shell','input','tap',str((b[0]+b[2])//2),str((b[1]+b[3])//2)])"
+            PASS=0; for i in $(seq 1 12); do sleep 5; adb shell uiautomator dump /sdcard/tattie-reply.xml >/dev/null || true; XML="$(adb shell cat /sdcard/tattie-reply.xml 2>/dev/null || true)"; if echo "$XML" | grep -q 'Och, my AI line dropped'; then echo 'WEE_TATTIE_REAL_AI_REPLY_FAILED'; exit 1; fi; COUNT="$(printf '%s' "$XML" | grep -o 'Tell me a Tattie joke' | wc -l | tr -d ' ')"; if echo "$XML" | grep -q 'WEE TATTIE READY' && [ "${COUNT:-0}" -ge 2 ]; then PASS=1; break; fi; done; [ "$PASS" = 1 ] || (echo 'WEE_TATTIE_REAL_AI_REPLY_TIMEOUT' && exit 1)
             adb exec-out screencap -p > final-tattie-ai-reply.png
             ! adb logcat -d | grep -A12 -B3 'FATAL EXCEPTION' | grep -q 'uk.domhnall.tattietcg' || (echo 'Runtime crash detected' && exit 1)
             echo 'RUNTIME_FINAL_HOME_PASS'
