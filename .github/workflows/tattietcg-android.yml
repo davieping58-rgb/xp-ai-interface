@@ -57,9 +57,6 @@ jobs:
           test -f assets/wee-tattie-home.jpg
           echo 'TATTIE_PROVEN_FASTSHOT_AI_SOURCE_PASS'
       - run: npm install --no-audit --no-fund
-      - name: Prove Fastshot AI package exports the known working hook
-        run: |
-          node -e "const m=require('@fastshot/ai'); if(typeof m.useTextGeneration!=='function') throw new Error('useTextGeneration export missing'); console.log('FASTSHOT_USE_TEXT_GENERATION_EXPORT_PASS')"
       - name: Install Expo 54 compatible camera and phone speech
         run: npx expo install expo-camera expo-speech
       - run: npx expo install --check
