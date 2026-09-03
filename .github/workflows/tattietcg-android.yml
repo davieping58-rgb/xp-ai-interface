@@ -10,8 +10,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      EXPO_PUBLIC_TATTIE_AGENT_URL: https://xp-ai-interface.vercel.app/api/tattie
     defaults:
       run:
         working-directory: tattietcg
@@ -45,22 +43,30 @@ jobs:
           grep -q "Speech.speak" src/App.js
           grep -q "WEE TATTIE AI ONLINE" src/App.js
           grep -q "WEE TATTIE AI" src/App.js
-          grep -q "AGENT_URL" src/App.js
+          grep -q "@fastshot/ai" src/App.js
+          grep -q "useTextGeneration" src/App.js
+          grep -q "generateText" src/App.js
+          ! grep -q "AI_GATEWAY_API_KEY" src/App.js
+          ! grep -q "VERCEL_OIDC_TOKEN" src/App.js
+          ! grep -q "AGENT_URL" src/App.js
           grep -q "LAST 5 SALES" src/App.js
           grep -q "https://tattie-tcg.myshopify.com" src/App.js
           grep -q "QRCode" src/App.js
           grep -q "DOMHNALL" src/App.js
           test -f assets/tattie-logo.jpg
           test -f assets/wee-tattie-home.jpg
-          echo 'TATTIE_FINAL_SOURCE_REQUIREMENTS_PASS'
+          echo 'TATTIE_PROVEN_FASTSHOT_AI_SOURCE_PASS'
       - run: npm install --no-audit --no-fund
+      - name: Prove Fastshot AI package exports the known working hook
+        run: |
+          node -e "const m=require('@fastshot/ai'); if(typeof m.useTextGeneration!=='function') throw new Error('useTextGeneration export missing'); console.log('FASTSHOT_USE_TEXT_GENERATION_EXPORT_PASS')"
       - name: Install Expo 54 compatible camera and phone speech
         run: npx expo install expo-camera expo-speech
       - run: npx expo install --check
       - run: npx expo prebuild --platform android
       - name: Build standalone APK
         run: cd android && chmod +x gradlew && ./gradlew assembleRelease --build-cache
-      - name: Boot Android and prove home installs launches and stays open
+      - name: Boot Android and prove app plus real Wee Tattie cloud reply
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -73,24 +79,65 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
           working-directory: tattietcg
           script: |
+            set -euo pipefail
             adb install -r android/app/build/outputs/apk/release/app-release.apk
             adb logcat -c
             adb shell monkey -p uk.domhnall.tattietcg -c android.intent.category.LAUNCHER 1
             sleep 15
             PID="$(adb shell pidof uk.domhnall.tattietcg 2>/dev/null | tr -d '\r\n')"; [ -n "$PID" ] || PID="$(adb shell dumpsys activity activities | sed -n 's/.*ProcessRecord{[^ ]* \([0-9][0-9]*\):uk\.domhnall\.tattietcg.*/\1/p' | head -n1)"; echo "TattieTCG PID: $PID"; test -n "$PID" || (echo 'APP_NOT_RUNNING_AFTER_LAUNCH' && exit 1)
             adb shell dumpsys activity activities | grep -q 'ResumedActivity:.*uk.domhnall.tattietcg/.MainActivity' || (echo 'TATTIE_NOT_RESUMED_AFTER_LAUNCH' && exit 1)
-            adb shell uiautomator dump /sdcard/tattie.xml >/dev/null || true
+            adb shell uiautomator dump /sdcard/tattie.xml >/dev/null
             adb shell cat /sdcard/tattie.xml | grep -q 'CARD SCANNER' || (echo 'FINAL_HOME_CARD_SCANNER_NOT_VISIBLE' && exit 1)
             adb shell cat /sdcard/tattie.xml | grep -q 'WEE TATTIE AI ONLINE' || (echo 'FINAL_HOME_WEE_TATTIE_NOT_VISIBLE' && exit 1)
             adb exec-out screencap -p > final-home.png
-            test -s final-home.png || (echo 'FINAL_HOME_SCREENSHOT_MISSING' && exit 1)
+            python3 - <<'PY'
+            import re, subprocess, xml.etree.ElementTree as ET
+            xml=subprocess.check_output(['adb','shell','cat','/sdcard/tattie.xml'],text=True)
+            root=ET.fromstring(xml)
+            target='WEE TATTIE AI ONLINE'
+            for n in root.iter('node'):
+                if n.attrib.get('text')==target:
+                    b=list(map(int,re.findall(r'\d+',n.attrib['bounds'])))
+                    subprocess.check_call(['adb','shell','input','tap',str((b[0]+b[2])//2),str((b[1]+b[3])//2)])
+                    break
+            else: raise SystemExit('WEE_TATTIE_HOME_TAP_TARGET_MISSING')
+            PY
+            sleep 3
+            adb shell uiautomator dump /sdcard/tattie-chat.xml >/dev/null
+            adb shell cat /sdcard/tattie-chat.xml | grep -q 'WEE TATTIE READY' || (echo 'WEE_TATTIE_CHAT_NOT_OPEN' && exit 1)
+            python3 - <<'PY'
+            import re, subprocess, xml.etree.ElementTree as ET
+            xml=subprocess.check_output(['adb','shell','cat','/sdcard/tattie-chat.xml'],text=True)
+            root=ET.fromstring(xml)
+            target='Tell me a Tattie joke'
+            for n in root.iter('node'):
+                if n.attrib.get('text')==target:
+                    b=list(map(int,re.findall(r'\d+',n.attrib['bounds'])))
+                    subprocess.check_call(['adb','shell','input','tap',str((b[0]+b[2])//2),str((b[1]+b[3])//2)])
+                    break
+            else: raise SystemExit('WEE_TATTIE_TEST_CHIP_MISSING')
+            PY
+            PASS=0
+            for i in $(seq 1 12); do
+              sleep 5
+              adb shell uiautomator dump /sdcard/tattie-reply.xml >/dev/null || true
+              XML="$(adb shell cat /sdcard/tattie-reply.xml 2>/dev/null || true)"
+              if echo "$XML" | grep -q 'Och, my AI line dropped'; then echo 'WEE_TATTIE_REAL_AI_REPLY_FAILED'; exit 1; fi
+              COUNT="$(printf '%s' "$XML" | grep -o 'Tell me a Tattie joke' | wc -l | tr -d ' ')"
+              if echo "$XML" | grep -q 'WEE TATTIE READY' && [ "${COUNT:-0}" -ge 2 ]; then PASS=1; break; fi
+            done
+            [ "$PASS" = 1 ] || (echo 'WEE_TATTIE_REAL_AI_REPLY_TIMEOUT' && exit 1)
+            adb exec-out screencap -p > final-tattie-ai-reply.png
             ! adb logcat -d | grep -A12 -B3 'FATAL EXCEPTION' | grep -q 'uk.domhnall.tattietcg' || (echo 'Runtime crash detected' && exit 1)
             echo 'RUNTIME_FINAL_HOME_PASS'
-      - name: Upload final home screenshot
+            echo 'WEE_TATTIE_REAL_CLOUD_AI_REPLY_PASS'
+      - name: Upload final screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: TattieTCG-Final-Home-Screenshot
-          path: tattietcg/final-home.png
+          name: TattieTCG-Final-Screenshots
+          path: |
+            tattietcg/final-home.png
+            tattietcg/final-tattie-ai-reply.png
           retention-days: 30
       - run: cp android/app/build/outputs/apk/release/app-release.apk TattieTCG-Launch.apk
       - uses: actions/upload-artifact@v4
