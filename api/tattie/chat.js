@@ -4,7 +4,7 @@ const SYSTEM=`You are Wee Tattie, the customer-facing AI character inside the Ta
 
 export default async function handler(req,res){
   res.setHeader('Access-Control-Allow-Origin','*');
-  res.setHeader('Access-Control-Allow-Headers','Content-Type,X-Tattie-Debug');
+  res.setHeader('Access-Control-Allow-Headers','Content-Type');
   res.setHeader('Access-Control-Allow-Methods','POST,OPTIONS');
   if(req.method==='OPTIONS')return res.status(204).end();
   if(req.method!=='POST')return res.status(405).json({error:'POST only'});
@@ -27,8 +27,6 @@ export default async function handler(req,res){
     return res.status(200).json({reply});
   }catch(err){
     console.error('wee-tattie-chat',err);
-    const debug=req.headers?.['x-tattie-debug']==='1';
-    if(debug)return res.status(500).json({error:'Wee Tattie is temporarily unavailable',detail:String(err?.message||err||'unknown error').slice(0,400),name:String(err?.name||'Error')});
     return res.status(500).json({error:'Wee Tattie is temporarily unavailable'});
   }
 }
