@@ -76,7 +76,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
           working-directory: tattietcg
           script: |
-            set -euo pipefail
+            set -eu
             adb install -r android/app/build/outputs/apk/release/app-release.apk
             adb logcat -c
             adb shell monkey -p uk.domhnall.tattietcg -c android.intent.category.LAUNCHER 1
