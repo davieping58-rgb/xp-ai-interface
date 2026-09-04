@@ -1,0 +1,38 @@
+name: Tattie Backend Smoke
+
+on:
+  push:
+    branches:
+      - tattie-backend-smoke
+
+jobs:
+  verify-production-chat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Prove Wee Tattie production AI reply
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file=$(mktemp)
+          http_code=$(curl --silent --show-error --fail-with-body \
+            --connect-timeout 10 --max-time 45 \
+            -o "$response_file" -w '%{http_code}' \
+            -H 'Content-Type: application/json' \
+            -X POST \
+            --data '{"message":"Reply with a short original Wee Tattie joke about trading cards. Do not repeat this instruction."}' \
+            'https://xp-ai-interface.vercel.app/api/tattie/chat' || true)
+          echo "HTTP $http_code"
+          cat "$response_file"
+          test "$http_code" = "200"
+          python - "$response_file" <<'PY'
+          import json, sys
+          p=sys.argv[1]
+          data=json.load(open(p,encoding='utf-8'))
+          reply=str(data.get('reply','')).strip()
+          assert len(reply) >= 10, f'No genuine reply: {data!r}'
+          bad=('temporarily unavailable','ai line dropped','try me again')
+          assert not any(x in reply.lower() for x in bad), f'Fallback reply: {reply}'
+          print('TATTIE_PRODUCTION_AI_REPLY_OK')
+          print(reply)
+          PY
