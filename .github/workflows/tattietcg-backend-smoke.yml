@@ -1,0 +1,33 @@
+name: TattieTCG Backend Smoke
+on:
+  push:
+    branches: [tattietcg-android]
+    paths: ['.github/workflows/tattietcg-backend-smoke.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Prove live Wee Tattie AI reply
+        shell: bash
+        run: |
+          set -euo pipefail
+          body='{"message":"Tell me one short Wee Tattie joke about a trading card.","history":[]}'
+          code=$(curl -sS -o reply.json -w '%{http_code}' \
+            -H 'Content-Type: application/json' \
+            -X POST \
+            --data "$body" \
+            https://xp-ai-interface.vercel.app/api/tattie/chat)
+          cat reply.json
+          test "$code" = "200"
+          node - <<'NODE'
+          const fs=require('fs');
+          const data=JSON.parse(fs.readFileSync('reply.json','utf8'));
+          if(typeof data.reply!=='string'||data.reply.trim().length<8) throw new Error('No genuine AI reply');
+          if(/temporarily unavailable|AI line dropped/i.test(data.reply)) throw new Error('Fallback reply');
+          console.log('WEE_TATTIE_PRODUCTION_AI_PASS');
+          console.log('Reply:', data.reply.trim());
+          NODE
