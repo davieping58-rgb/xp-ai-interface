@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/tattie/download",
+      "destination": "https://github.com/davieping58-rgb/xp-ai-interface/releases/download/tattietcg-latest/TattieTCG.apk"
+    }
+  ]
+}
