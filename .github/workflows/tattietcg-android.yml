@@ -23,29 +23,32 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
-      - name: Rebuild clean Wee Tattie image
+      - name: Rebuild Wee Tattie image
         run: |
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
           file assets/wee-tattie-home.jpg | grep -q 'JPEG image data'
       - name: Verify Tattie source
         run: |
+          set -e
           grep -q "CARD SCANNER" src/App.js
           grep -q "CameraView" src/App.js
           grep -q "Speech.speak" src/App.js
           grep -q "WEE TATTIE AI ONLINE" src/App.js
-          grep -q "@fastshot/ai" src/App.js
-          grep -q "useTextGeneration" src/App.js
-          grep -q "generateText" src/App.js
+          grep -q "xp-ai-interface.vercel.app/api/tattie/chat" src/App.js
+          grep -q "Pokémon" src/App.js
+          grep -q "Yu-Gi-Oh" src/App.js
+          grep -q "COMMUNITY" src/App.js
           ! grep -q "AI_GATEWAY_API_KEY" src/App.js
           ! grep -q "VERCEL_OIDC_TOKEN" src/App.js
-          ! grep -q "AGENT_URL" src/App.js
       - run: npm install --no-audit --no-fund
       - name: Install Expo 54 compatible native modules
         run: npx expo install expo-camera expo-speech
-      - run: npx expo prebuild --platform android
+      - run: npx expo prebuild --platform android --clean
       - name: Build standalone APK
-        run: cd android && chmod +x gradlew && ./gradlew assembleRelease --build-cache
+        run: cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+      - name: Verify APK exists
+        run: test -s android/app/build/outputs/apk/release/app-release.apk
       - name: Prepare launch APK
         run: cp android/app/build/outputs/apk/release/app-release.apk TattieTCG.apk
       - name: Upload APK artifact
@@ -63,4 +66,4 @@ jobs:
           else
             gh release create tattietcg-latest TattieTCG.apk --title "TattieTCG Android" --notes "Official TattieTCG Android APK."
           fi
-          echo 'PERMANENT_FINAL_APK_RELEASE_PASS'
+          echo 'TATTIETCG_FINAL_APK_RELEASE_PASS'
