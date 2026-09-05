@@ -28,6 +28,18 @@ jobs:
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
           file assets/wee-tattie-home.jpg | grep -q 'JPEG image data'
+      - name: Use clean customer download URL
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/App.js')
+          s=p.read_text()
+          old="https://github.com/davieping58-rgb/xp-ai-interface/releases/download/tattietcg-latest/TattieTCG.apk"
+          new="https://xp-ai-interface.vercel.app/api/tattie/download"
+          if old not in s:
+              raise SystemExit('Expected old APK URL not found')
+          p.write_text(s.replace(old,new))
+          PY
       - name: Verify Tattie source
         run: |
           set -e
@@ -36,6 +48,8 @@ jobs:
           grep -q "Speech.speak" src/App.js
           grep -q "WEE TATTIE AI ONLINE" src/App.js
           grep -q "xp-ai-interface.vercel.app/api/tattie/chat" src/App.js
+          grep -q "xp-ai-interface.vercel.app/api/tattie/download" src/App.js
+          ! grep -q "github.com/davieping58-rgb/xp-ai-interface/releases/download/tattietcg-latest/TattieTCG.apk" src/App.js
           grep -q "Pokémon" src/App.js
           grep -q "Yu-Gi-Oh" src/App.js
           grep -q "COMMUNITY" src/App.js
