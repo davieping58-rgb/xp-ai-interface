@@ -36,9 +36,13 @@ jobs:
           s=p.read_text()
           old="https://github.com/davieping58-rgb/xp-ai-interface/releases/download/tattietcg-latest/TattieTCG.apk"
           new="https://xp-ai-interface.vercel.app/api/tattie/download"
-          if old not in s:
-              raise SystemExit('Expected old APK URL not found')
-          p.write_text(s.replace(old,new))
+          if old in s:
+              s=s.replace(old,new)
+              p.write_text(s)
+          elif new in s:
+              print('Clean customer APK URL already present')
+          else:
+              raise SystemExit('No recognised APK URL found in src/App.js')
           PY
       - name: Verify Tattie source
         run: |
