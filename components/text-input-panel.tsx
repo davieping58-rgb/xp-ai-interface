@@ -12,9 +12,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/Colors";
 import { Fonts } from "@/constants/Typography";
 import { useAppStore } from "@/store/useAppStore";
-import { useTextGeneration } from "@fastshot/ai";
-import { XP_SYSTEM_PROMPT } from "@/constants/XPPersonality";
 import { speakWithScottishVoice } from "@/utils/speech";
+
+const MOTHERSHIP = "https://mothership.tailaa7a43.ts.net";
+const MOTHERSHIP_TIMEOUT_MS = 10000;
 
 interface TextInputPanelProps {
   onBack: () => void;
@@ -22,16 +23,13 @@ interface TextInputPanelProps {
 
 export function TextInputPanel({ onBack }: TextInputPanelProps) {
   const [inputText, setInputText] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const conversations = useAppStore((s) => s.conversations);
   const addMessage = useAppStore((s) => s.addMessage);
   const addMemory = useAppStore((s) => s.addMemory);
   const settings = useAppStore((s) => s.settings);
-  const memories = useAppStore((s) => s.memories);
-  const currentMode = useAppStore((s) => s.currentMode);
   const setAnimation = useAppStore((s) => s.setAnimation);
-
-  const { generateText, isLoading } = useTextGeneration();
 
   const handleSend = useCallback(async () => {
     const text = inputText.trim();
@@ -40,55 +38,62 @@ export function TextInputPanel({ onBack }: TextInputPanelProps) {
     setInputText("");
     addMessage("user", text);
 
-    // Auto-save explicit "remember" requests as facts
     const rememberMatch = text.match(/^(?:remember|note|save)[:\s]+(.+)/i);
     if (rememberMatch?.[1] && settings.memoryEnabled) {
       addMemory("fact", rememberMatch[1].trim());
     }
 
+    setIsLoading(true);
+    setAnimation("thinking");
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), MOTHERSHIP_TIMEOUT_MS);
+
     try {
-      setAnimation("thinking");
+      const response = await fetch(`${MOTHERSHIP}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+        signal: controller.signal,
+      });
 
-      // Build context with memories
-      const memoryContext = memories.length > 0
-        ? `\n\nUser memories: ${memories.map((m) => m.content).join("; ")}`
-        : "";
+      if (!response.ok) {
+        throw new Error(`Mothership returned ${response.status}`);
+      }
 
-      const recentMessages = conversations.slice(-10).map((m) => `${m.role}: ${m.content}`).join("\n");
+      const data = await response.json();
+      const xpResponse = data?.reply || data?.response || data?.message;
+      if (!xpResponse || typeof xpResponse !== "string") {
+        throw new Error("Mothership response did not contain a reply");
+      }
 
-      const fullPrompt = `${XP_SYSTEM_PROMPT}${memoryContext}\n\nCurrent mode: ${currentMode}\n\nRecent conversation:\n${recentMessages}\n\nuser: ${text}\nxp:`;
+      addMessage("xp", xpResponse);
+      setAnimation("speaking");
 
-      const response = await generateText(fullPrompt);
-
-      if (response) {
-        const xpResponse = typeof response === "string" ? response : String(response);
-        addMessage("xp", xpResponse);
-        setAnimation("speaking");
-
-        if (settings.voiceEnabled) {
-          speakWithScottishVoice(xpResponse, {
-            rate: settings.voiceSpeed,
-            onDone: () => setAnimation("idle"),
-            onError: () => setAnimation("idle"),
-          });
-        } else {
-          setTimeout(() => setAnimation("idle"), 1500);
-        }
+      if (settings.voiceEnabled) {
+        speakWithScottishVoice(xpResponse, {
+          rate: settings.voiceSpeed,
+          onDone: () => setAnimation("idle"),
+          onError: () => setAnimation("idle"),
+        });
+      } else {
+        setAnimation("idle");
       }
     } catch {
-      const errMsg = "Something went sideways. Give it another shot.";
-      addMessage("xp", errMsg);
+      addMessage("xp", "I can't reach the Mothership right now.");
       setAnimation("idle");
+    } finally {
+      clearTimeout(timeout);
+      setIsLoading(false);
     }
 
     setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, 100);
-  }, [inputText, isLoading, addMessage, addMemory, generateText, memories, conversations, currentMode, settings, setAnimation]);
+  }, [inputText, isLoading, addMessage, addMemory, settings, setAnimation]);
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: Colors.background }} behavior="padding">
-      {/* Header */}
       <View
         style={{
           flexDirection: "row",
@@ -113,34 +118,32 @@ export function TextInputPanel({ onBack }: TextInputPanelProps) {
               letterSpacing: 1,
             }}
           >
-            Text Input
+            Talk to XP
           </Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Messages */}
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16, gap: 8 }}
         showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
-        {conversations.slice(-20).map((msg) => (
+        {conversations.slice(-40).map((msg) => (
           <View
             key={msg.id}
             style={{
               alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-              maxWidth: "80%",
+              maxWidth: "84%",
               paddingHorizontal: 14,
               paddingVertical: 10,
               borderRadius: 14,
               borderCurve: "continuous",
-              backgroundColor:
-                msg.role === "user" ? "rgba(0, 229, 255, 0.12)" : Colors.tileBg,
+              backgroundColor: msg.role === "user" ? "rgba(0, 229, 255, 0.12)" : Colors.tileBg,
               borderWidth: 1,
-              borderColor:
-                msg.role === "user" ? "rgba(0, 229, 255, 0.3)" : Colors.panelBorder,
+              borderColor: msg.role === "user" ? "rgba(0, 229, 255, 0.3)" : Colors.panelBorder,
             }}
           >
             <Text
@@ -156,6 +159,7 @@ export function TextInputPanel({ onBack }: TextInputPanelProps) {
             </Text>
           </View>
         ))}
+
         {isLoading && (
           <View
             style={{
@@ -179,7 +183,6 @@ export function TextInputPanel({ onBack }: TextInputPanelProps) {
         )}
       </ScrollView>
 
-      {/* Input bar */}
       <View
         style={{
           flexDirection: "row",
@@ -196,23 +199,26 @@ export function TextInputPanel({ onBack }: TextInputPanelProps) {
         <TextInput
           style={{
             flex: 1,
-            height: 44,
+            minHeight: 44,
+            maxHeight: 110,
             borderRadius: 12,
             backgroundColor: "rgba(0, 20, 50, 0.8)",
             borderWidth: 1,
             borderColor: Colors.panelBorder,
             paddingHorizontal: 14,
+            paddingVertical: 10,
             fontFamily: Fonts.regular,
             fontSize: 14,
             color: Colors.text,
           }}
-          placeholder="Type something to XP..."
+          placeholder="Message XP..."
           placeholderTextColor={Colors.textDim}
           value={inputText}
           onChangeText={setInputText}
           onSubmitEditing={handleSend}
           returnKeyType="send"
           editable={!isLoading}
+          multiline
         />
         <Pressable
           onPress={handleSend}
@@ -228,8 +234,7 @@ export function TextInputPanel({ onBack }: TextInputPanelProps) {
                 ? "rgba(0, 229, 255, 0.3)"
                 : "rgba(0, 229, 255, 0.15)",
             borderWidth: 1,
-            borderColor:
-              !inputText.trim() || isLoading ? Colors.panelBorder : Colors.primaryGlow,
+            borderColor: !inputText.trim() || isLoading ? Colors.panelBorder : Colors.primaryGlow,
             alignItems: "center",
             justifyContent: "center",
           })}
