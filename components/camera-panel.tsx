@@ -12,7 +12,17 @@ interface CameraPanelProps {
   onBack: () => void;
 }
 
+type CameraSource = "auto" | "phone" | "rasbot" | "off";
+
+const CAMERA_OPTIONS: { id: CameraSource; label: string; icon: keyof typeof Ionicons.glyphMap; detail: string }[] = [
+  { id: "auto", label: "Auto", icon: "sparkles-outline", detail: "XP chooses the available camera" },
+  { id: "phone", label: "Phone", icon: "phone-portrait-outline", detail: "Use this phone camera and gallery" },
+  { id: "rasbot", label: "Rasbot", icon: "hardware-chip-outline", detail: "Use XP's Rasbot eyes when connected" },
+  { id: "off", label: "Off", icon: "eye-off-outline", detail: "Camera disabled" },
+];
+
 export function CameraPanel({ onBack }: CameraPanelProps) {
+  const [cameraSource, setCameraSource] = useState<CameraSource>("auto");
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const addMessage = useAppStore((s) => s.addMessage);
@@ -20,12 +30,25 @@ export function CameraPanel({ onBack }: CameraPanelProps) {
   const setAnimation = useAppStore((s) => s.setAnimation);
 
   const { analyzeImage, isLoading, error } = useImageAnalysis();
+  const phoneCameraEnabled = cameraSource === "auto" || cameraSource === "phone";
+
+  const chooseSource = useCallback((source: CameraSource) => {
+    setCameraSource(source);
+    setCapturedUri(null);
+    setAnalysisResult(
+      source === "rasbot"
+        ? "Rasbot camera selected. XP will use the robot eyes when the Rasbot link is available."
+        : source === "off"
+        ? "Camera is off."
+        : null
+    );
+  }, []);
 
   const handlePickImage = useCallback(async () => {
+    if (!phoneCameraEnabled) return;
     try {
       const ImagePicker = await import("expo-image-picker");
       const permResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
       if (!permResult.granted) {
         setAnalysisResult("I need access to your photos to see what you want to show me. Check your permissions.");
         return;
@@ -38,20 +61,19 @@ export function CameraPanel({ onBack }: CameraPanelProps) {
       });
 
       if (!result.canceled && result.assets[0]) {
-        const uri = result.assets[0].uri;
-        setCapturedUri(uri);
+        setCapturedUri(result.assets[0].uri);
         setAnalysisResult(null);
       }
     } catch {
       setAnalysisResult("Couldn't access the image picker. Try again.");
     }
-  }, []);
+  }, [phoneCameraEnabled]);
 
   const handleTakePhoto = useCallback(async () => {
+    if (!phoneCameraEnabled) return;
     try {
       const ImagePicker = await import("expo-image-picker");
       const permResult = await ImagePicker.requestCameraPermissionsAsync();
-
       if (!permResult.granted) {
         setAnalysisResult("I need camera access to see what you're showing me. Grant permission in settings.");
         return;
@@ -63,14 +85,13 @@ export function CameraPanel({ onBack }: CameraPanelProps) {
       });
 
       if (!result.canceled && result.assets[0]) {
-        const uri = result.assets[0].uri;
-        setCapturedUri(uri);
+        setCapturedUri(result.assets[0].uri);
         setAnalysisResult(null);
       }
     } catch {
       setAnalysisResult("Camera not available on this device. Try picking an image instead.");
     }
-  }, []);
+  }, [phoneCameraEnabled]);
 
   const handleAnalyze = useCallback(async () => {
     if (!capturedUri) return;
@@ -79,17 +100,16 @@ export function CameraPanel({ onBack }: CameraPanelProps) {
       setAnimation("thinking");
       const result = await analyzeImage({
         imageUrl: capturedUri,
-        prompt: "Describe what you see in this image in detail. Be conversational and insightful, like a smart Scottish friend commenting on what they notice. Keep it natural and engaging.",
+        prompt: "Describe what you see in this image naturally and clearly for Davie.",
       });
 
       if (result) {
         const text = typeof result === "string" ? result : String(result);
         setAnalysisResult(text);
-        addMessage("user", "[Shared an image for analysis]");
+        addMessage("user", "[Shared an image with XP]");
         addMessage("xp", text);
         setAnimation("speaking");
 
-        // Speak the result
         if (settings.voiceEnabled) {
           speakWithScottishVoice(text, {
             rate: settings.voiceSpeed,
@@ -101,8 +121,7 @@ export function CameraPanel({ onBack }: CameraPanelProps) {
         }
       }
     } catch {
-      const errMsg = "I couldn't get a clear read on that. Mind trying another image?";
-      setAnalysisResult(errMsg);
+      setAnalysisResult("I couldn't get a clear read on that. Mind trying another image?");
       setAnimation("idle");
     }
   }, [capturedUri, analyzeImage, addMessage, settings, setAnimation]);
@@ -114,222 +133,134 @@ export function CameraPanel({ onBack }: CameraPanelProps) {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      {/* Header */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 16,
-          paddingTop: 56,
-          paddingBottom: 12,
-        }}
-      >
-        <Pressable
-          onPress={onBack}
-          style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" }}
-        >
+      <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12 }}>
+        <Pressable onPress={onBack} style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" }}>
           <Ionicons name="chevron-back" size={24} color={Colors.primaryGlow} />
         </Pressable>
         <View style={{ flex: 1, alignItems: "center" }}>
-          <Text
-            style={{
-              fontFamily: Fonts.bold,
-              fontSize: 20,
-              color: Colors.primaryGlow,
-              letterSpacing: 1,
-            }}
-          >
-            Camera Vision
+          <Text style={{ fontFamily: Fonts.bold, fontSize: 20, color: Colors.primaryGlow, letterSpacing: 1 }}>
+            Camera
           </Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 16, alignItems: "center" }}
-        showsVerticalScrollIndicator={false}
-        style={{ flex: 1 }}
-      >
-        <Text
-          style={{
-            fontFamily: Fonts.light,
-            fontSize: 13,
-            color: Colors.textDim,
-            textAlign: "center",
-          }}
-        >
-          {"Show me something. I'll tell you what I see."}
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false}>
+        <Text style={{ fontFamily: Fonts.semiBold, fontSize: 12, color: Colors.textDim, letterSpacing: 1 }}>
+          CAMERA SOURCE
         </Text>
 
-        {/* Image preview */}
-        {capturedUri ? (
-          <View
-            style={{
-              width: "100%",
-              aspectRatio: 1,
-              borderRadius: 16,
-              borderCurve: "continuous",
-              overflow: "hidden",
-              borderWidth: 1,
-              borderColor: Colors.panelBorder,
-            }}
-          >
-            <Image
-              source={{ uri: capturedUri }}
-              style={{ width: "100%", height: "100%" }}
-              contentFit="cover"
-            />
-          </View>
-        ) : (
-          <View style={{ width: "100%", gap: 12 }}>
-            {/* Camera capture button */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          {CAMERA_OPTIONS.map((option) => {
+            const selected = cameraSource === option.id;
+            return (
+              <Pressable
+                key={option.id}
+                onPress={() => chooseSource(option.id)}
+                style={({ pressed }) => ({
+                  width: "48%",
+                  minHeight: 92,
+                  padding: 12,
+                  borderRadius: 14,
+                  borderWidth: selected ? 2 : 1,
+                  borderColor: selected ? Colors.primaryGlow : Colors.panelBorder,
+                  backgroundColor: selected || pressed ? "rgba(0, 229, 255, 0.1)" : Colors.tileBg,
+                  gap: 7,
+                })}
+              >
+                <Ionicons name={option.icon} size={22} color={selected ? Colors.primaryGlow : Colors.textDim} />
+                <Text style={{ fontFamily: Fonts.semiBold, fontSize: 14, color: selected ? Colors.primaryGlow : Colors.text }}>
+                  {option.label}
+                </Text>
+                <Text style={{ fontFamily: Fonts.regular, fontSize: 11, lineHeight: 15, color: Colors.textDim }}>
+                  {option.detail}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {phoneCameraEnabled && !capturedUri && (
+          <View style={{ gap: 12 }}>
             <Pressable
               onPress={handleTakePhoto}
               style={({ pressed }) => ({
-                width: "100%",
-                paddingVertical: 40,
+                paddingVertical: 32,
                 borderRadius: 16,
-                borderCurve: "continuous",
                 borderWidth: 2,
                 borderColor: pressed ? Colors.primaryGlow : Colors.panelBorder,
                 backgroundColor: pressed ? "rgba(0, 229, 255, 0.05)" : "transparent",
                 alignItems: "center",
-                justifyContent: "center",
-                gap: 12,
-              })}
-            >
-              <Ionicons name="camera-outline" size={48} color={Colors.primaryGlow} />
-              <Text style={{ fontFamily: Fonts.medium, fontSize: 14, color: Colors.text }}>
-                Take a Photo
-              </Text>
-              <Text style={{ fontFamily: Fonts.regular, fontSize: 12, color: Colors.textDim }}>
-                {"Point your camera at something"}
-              </Text>
-            </Pressable>
-
-            {/* Image picker button */}
-            <Pressable
-              onPress={handlePickImage}
-              style={({ pressed }) => ({
-                width: "100%",
-                paddingVertical: 28,
-                borderRadius: 16,
-                borderCurve: "continuous",
-                borderWidth: 1,
-                borderStyle: "dashed",
-                borderColor: pressed ? Colors.primaryGlow : Colors.panelBorder,
-                backgroundColor: pressed ? "rgba(0, 229, 255, 0.05)" : "transparent",
-                alignItems: "center",
-                justifyContent: "center",
                 gap: 10,
               })}
             >
-              <Ionicons name="image-outline" size={32} color={Colors.textDim} />
-              <Text style={{ fontFamily: Fonts.medium, fontSize: 13, color: Colors.textDim }}>
-                Or pick from gallery
-              </Text>
+              <Ionicons name="camera-outline" size={42} color={Colors.primaryGlow} />
+              <Text style={{ fontFamily: Fonts.medium, fontSize: 14, color: Colors.text }}>Take a Photo</Text>
             </Pressable>
-          </View>
-        )}
 
-        {/* Action buttons */}
-        {capturedUri && (
-          <View style={{ flexDirection: "row", gap: 12, width: "100%" }}>
             <Pressable
-              onPress={handleReset}
-              style={{
-                flex: 1,
-                paddingVertical: 14,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: Colors.panelBorder,
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ fontFamily: Fonts.medium, fontSize: 14, color: Colors.textDim }}>
-                Pick Another
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={handleAnalyze}
-              disabled={isLoading}
+              onPress={handlePickImage}
               style={({ pressed }) => ({
-                flex: 2,
-                paddingVertical: 14,
-                borderRadius: 12,
-                backgroundColor: pressed ? "rgba(0, 229, 255, 0.25)" : "rgba(0, 229, 255, 0.15)",
+                paddingVertical: 22,
+                borderRadius: 16,
                 borderWidth: 1,
-                borderColor: Colors.primaryGlow,
+                borderStyle: "dashed",
+                borderColor: pressed ? Colors.primaryGlow : Colors.panelBorder,
                 alignItems: "center",
-                flexDirection: "row",
-                justifyContent: "center",
                 gap: 8,
               })}
             >
-              {isLoading ? (
-                <>
-                  <ActivityIndicator size="small" color={Colors.primaryGlow} />
-                  <Text style={{ fontFamily: Fonts.semiBold, fontSize: 14, color: Colors.primaryGlow }}>
-                    Analyzing...
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="eye-outline" size={18} color={Colors.primaryGlow} />
-                  <Text style={{ fontFamily: Fonts.semiBold, fontSize: 14, color: Colors.primaryGlow }}>
-                    What do you see?
-                  </Text>
-                </>
-              )}
+              <Ionicons name="images-outline" size={28} color={Colors.textDim} />
+              <Text style={{ fontFamily: Fonts.medium, fontSize: 13, color: Colors.textDim }}>Share a picture with XP</Text>
             </Pressable>
           </View>
         )}
 
-        {/* Analysis result */}
-        {analysisResult && (
-          <View
-            style={{
-              width: "100%",
-              padding: 16,
-              borderRadius: 14,
-              borderCurve: "continuous",
-              backgroundColor: Colors.tileBg,
-              borderWidth: 1,
-              borderColor: Colors.panelBorder,
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <Ionicons name="eye" size={16} color={Colors.primaryGlow} />
-              <Text style={{ fontFamily: Fonts.semiBold, fontSize: 12, color: Colors.primaryGlow }}>
-                XP SEES
-              </Text>
+        {capturedUri && (
+          <>
+            <View style={{ width: "100%", aspectRatio: 1, borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: Colors.panelBorder }}>
+              <Image source={{ uri: capturedUri }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
             </View>
-            <Text
-              style={{
-                fontFamily: Fonts.regular,
-                fontSize: 14,
-                color: Colors.text,
-                lineHeight: 21,
-              }}
-              selectable
-            >
+
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <Pressable onPress={handleReset} style={{ flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: Colors.panelBorder, alignItems: "center" }}>
+                <Text style={{ fontFamily: Fonts.medium, fontSize: 14, color: Colors.textDim }}>Another</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleAnalyze}
+                disabled={isLoading}
+                style={({ pressed }) => ({
+                  flex: 2,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  backgroundColor: pressed ? "rgba(0, 229, 255, 0.25)" : "rgba(0, 229, 255, 0.15)",
+                  borderWidth: 1,
+                  borderColor: Colors.primaryGlow,
+                  alignItems: "center",
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  gap: 8,
+                })}
+              >
+                {isLoading ? <ActivityIndicator size="small" color={Colors.primaryGlow} /> : <Ionicons name="eye-outline" size={18} color={Colors.primaryGlow} />}
+                <Text style={{ fontFamily: Fonts.semiBold, fontSize: 14, color: Colors.primaryGlow }}>
+                  {isLoading ? "Looking..." : "Show XP"}
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        )}
+
+        {analysisResult && (
+          <View style={{ padding: 16, borderRadius: 14, backgroundColor: Colors.tileBg, borderWidth: 1, borderColor: Colors.panelBorder }}>
+            <Text style={{ fontFamily: Fonts.regular, fontSize: 14, color: Colors.text, lineHeight: 21 }} selectable>
               {analysisResult}
             </Text>
           </View>
         )}
 
-        {/* Error */}
         {error && !analysisResult && (
-          <View
-            style={{
-              width: "100%",
-              padding: 14,
-              borderRadius: 12,
-              backgroundColor: "rgba(255, 23, 68, 0.1)",
-              borderWidth: 1,
-              borderColor: "rgba(255, 23, 68, 0.3)",
-            }}
-          >
+          <View style={{ padding: 14, borderRadius: 12, backgroundColor: "rgba(255, 23, 68, 0.1)", borderWidth: 1, borderColor: "rgba(255, 23, 68, 0.3)" }}>
             <Text style={{ fontFamily: Fonts.regular, fontSize: 13, color: Colors.alert }}>
               {error.message ?? "Something went wrong. Give it another shot."}
             </Text>
