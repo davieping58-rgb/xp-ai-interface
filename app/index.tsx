@@ -29,8 +29,8 @@ import { useAudioTranscription } from "@fastshot/ai";
 import { speakWithScottishVoice, stopSpeaking } from "@/utils/speech";
 import { startAudioRecording, stopAudioRecording } from "@/utils/audio-recorder";
 
-const MOTHERSHIP = "http://192.168.1.211:8000";
-const MOTHERSHIP_TIMEOUT_MS = 2500;
+const MOTHERSHIP = "https://mothership.tailaa7a43.ts.net";
+const MOTHERSHIP_TIMEOUT_MS = 10000;
 
 type ActiveScreen =
   | "home"
