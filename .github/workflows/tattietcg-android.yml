@@ -44,6 +44,21 @@ jobs:
           else:
               raise SystemExit('No recognised APK URL found in src/App.js')
           PY
+      - name: Polish Last 5 and Community for phone
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/App.js')
+          s=p.read_text()
+          notice='<View style={s.notice}><Ionicons name="shield-checkmark" size={28} color={GREEN}/><Text style={[s.body,{flex:1}]}>No more eBay jump. Search stays inside TattieTCG. We will show the five real sold prices here when the direct price feed is connected.</Text></View>'
+          s=s.replace(notice,'')
+          s=s.replace("communityBody:{flex:1,flexDirection:'row',gap:8,paddingBottom:8}","communityBody:{flex:1,gap:8,paddingBottom:8}")
+          s=s.replace("channelRail:{width:105,backgroundColor:'#0b0710',borderRadius:14,borderWidth:1,borderColor:LINE}","channelRail:{maxHeight:58,backgroundColor:'#0b0710',borderRadius:14,borderWidth:1,borderColor:LINE}")
+          s=s.replace("channelRailContent:{padding:8,gap:6}","channelRailContent:{padding:8,gap:6,flexDirection:'row',alignItems:'center'}")
+          s=s.replace("channelItem:{paddingVertical:10,paddingHorizontal:7,borderRadius:9}","channelItem:{paddingVertical:9,paddingHorizontal:12,borderRadius:18}")
+          s=s.replace("channelText:{color:M,fontWeight:'800',fontSize:11}","channelText:{color:M,fontWeight:'800',fontSize:12}")
+          p.write_text(s)
+          PY
       - name: Verify Tattie source
         run: |
           set -e
@@ -54,6 +69,7 @@ jobs:
           grep -q "xp-ai-interface.vercel.app/api/tattie/chat" src/App.js
           grep -q "xp-ai-interface.vercel.app/api/tattie/download" src/App.js
           ! grep -q "github.com/davieping58-rgb/xp-ai-interface/releases/download/tattietcg-latest/TattieTCG.apk" src/App.js
+          ! grep -q "No more eBay jump" src/App.js
           grep -q "Pokémon" src/App.js
           grep -q "Yu-Gi-Oh" src/App.js
           grep -q "COMMUNITY" src/App.js
