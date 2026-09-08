@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name":"TattieTCG","slug":"tattietcg","version":"2.0.0","orientation":"portrait","userInterfaceStyle":"dark",
-    "android":{"package":"uk.domhnall.tattietcg","versionCode":20},
+    "name":"TattieTCG","slug":"tattietcg","version":"2.0.1","orientation":"portrait","userInterfaceStyle":"dark","icon":"./assets/wee-tattie-home.jpg",
+    "android":{"package":"uk.domhnall.tattietcg","versionCode":21,"icon":"./assets/wee-tattie-home.jpg"},
     "ios":{"supportsTablet":true,"bundleIdentifier":"uk.domhnall.tattietcg"}
   }
 }
