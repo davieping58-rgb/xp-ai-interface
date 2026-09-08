@@ -54,8 +54,14 @@ jobs:
           ! grep -q "clean Tattie download route" src/App.js
           ! grep -q "AI_GATEWAY_API_KEY" ../api/tattie/chat.js
           ! grep -q "VERCEL_OIDC_TOKEN" ../api/tattie/chat.js
+          ! grep -q "ai-gateway.vercel.sh" ../api/tattie/chat.js
+          ! grep -q "ai-gateway.vercel.sh" ../api/tattie/scan.js
           grep -q "OPENAI_API_KEY" ../api/tattie/chat.js
           grep -q "OPENAI_API_KEY" ../api/tattie/scan.js
+          grep -q "https://api.openai.com/v1/responses" ../api/tattie/chat.js
+          grep -q "https://api.openai.com/v1/responses" ../api/tattie/scan.js
+          grep -q "gpt-5.6-luna" ../api/tattie/chat.js
+          grep -q "gpt-5.6-luna" ../api/tattie/scan.js
           grep -q "api.pokemontcg.io" ../api/tattie/scan.js
           grep -q "ygoprodeck.com" ../api/tattie/scan.js
       - run: npm install --no-audit --no-fund
