@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [tattietcg-android]
-    paths: ['tattietcg/**', '.github/workflows/tattietcg-android.yml']
+    paths: ['tattietcg/**', '.github/workflows/tattietcg-android.yml', 'api/tattie/**']
 permissions:
   contents: write
 jobs:
@@ -17,7 +17,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.19.0
+          cache: npm
+          cache-dependency-path: tattietcg/package-lock.json
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -28,61 +30,39 @@ jobs:
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
           file assets/wee-tattie-home.jpg | grep -q 'JPEG image data'
-      - name: Apply final Tattie phone changes
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('src/App.js')
-          s=p.read_text()
-          old="https://github.com/davieping58-rgb/xp-ai-interface/releases/download/tattietcg-latest/TattieTCG.apk"
-          new="https://xp-ai-interface.vercel.app/api/tattie/download"
-          if old in s: s=s.replace(old,new)
-          elif new not in s: raise SystemExit('No recognised APK URL')
-
-          old_speak="const speak=t=>{Speech.stop();Speech.speak(String(t),{language:'en-GB',rate:.92,pitch:.96})};"
-          new_speak="let maleVoice=null;const speak=async t=>{Speech.stop();try{if(!maleVoice){const vs=await Speech.getAvailableVoicesAsync();const en=vs.filter(v=>String(v.language||'').toLowerCase().startsWith('en'));const males=en.filter(v=>/male|gbb|gbm|uk.*m/i.test(String(v.name||'')+' '+String(v.identifier||'')));maleVoice=(males.find(v=>String(v.language||'').toLowerCase().includes('gb'))||males[0]||en.find(v=>String(v.language||'').toLowerCase().includes('gb'))||{}).identifier||null}Speech.speak(String(t),{language:'en-GB',voice:maleVoice||undefined,rate:.9,pitch:.78})}catch{Speech.speak(String(t),{language:'en-GB',rate:.9,pitch:.78})}};const localTattieFallback=q=>{const x=String(q||'').toLowerCase();if(/hello|hi|hey|hiya|alright/.test(x))return \"Aye legend! My main AI line is offline, but I'm still here.\";if(/pokemon|pokémon/.test(x))return 'Offline tip: check the set number, rarity symbol and condition first. I can do deeper Pokémon help when my AI line reconnects.';if(/yu-gi-oh|yugioh/.test(x))return 'Offline tip: check the card code, edition and condition first. I can do deeper Yu-Gi-Oh! help when my AI line reconnects.';if(/protect|sleeve|care|condition/.test(x))return 'Sleeve the card, use a rigid holder for valuable cards, and keep it dry, cool and out of direct sunlight.';if(/price|worth|value|sale/.test(x))return 'Use Last 5 for recent sold prices. My deeper AI line is offline just now.';if(/scan|identify|what card/.test(x))return 'Use Card Scanner, then enter the card name or set number. I can still guide you while the main AI line is offline.';return \"My main AI line is offline, but I can still help with card care, scanning, Pokémon, Yu-Gi-Oh! and Last 5 prices.\"};"
-          if old_speak not in s: raise SystemExit('Speech source changed unexpectedly')
-          s=s.replace(old_speak,new_speak)
-          s=s.replace('const reply="Och, my AI line dropped for a second. Try me again in a wee moment.";setMsg(m=>[...m,{role:\'assistant\',content:reply}]);speak(reply)',"const reply=localTattieFallback(value);setMsg(m=>[...m,{role:'assistant',content:reply}]);speak(reply)")
-          s=s.replace('<Text style={s.powered}>♛ DOMHNALL ∞</Text><Text style={s.poweredSub}>POWERED BY XP AI</Text>','<View style={{alignItems:\'center\',marginTop:4}}><Logo/></View><Text style={s.poweredSub}>POWERED BY XP AI</Text>')
-
-          start=s.index('function Last5(){')
-          end=s.index('\n\nfunction Community()',start)
-          last5="""function Last5(){const[name,setName]=useState('');const[sales,setSales]=useState([]);const[busy,setBusy]=useState(false);const show=async()=>{if(!name.trim())return Alert.alert('Card name','Enter a card first.');setBusy(true);setSales([]);try{const u='https://www.ebay.co.uk/sch/i.html?_nkw='+encodeURIComponent(name.trim())+'&LH_Sold=1&LH_Complete=1&_sop=13';const r=await fetch(u,{headers:{'Accept-Language':'en-GB,en;q=0.9'}});if(!r.ok)throw new Error('price feed unavailable');const h=await r.text();const prices=[];const re=/s-item__price[^>]*>(?:<span[^>]*>)?([^<]+)/gi;let m;while((m=re.exec(h))&&prices.length<5){const v=m[1].replace(/&pound;/gi,'£').replace(/&#xA3;/gi,'£').trim();if(/[£$€]\s*\d/.test(v)&&!prices.includes(v))prices.push(v)}if(prices.length<1)throw new Error('no sold prices found');setSales(prices.slice(0,5).map((price,i)=>({id:i+1,label:i===0?'Most recent sold result':'Sold result '+(i+1),price}))) }catch(e){Alert.alert('Last 5','Live sold-price feed could not be reached. Try again with the exact card name and set number.')}finally{setBusy(false)}};return <ScrollView contentContainerStyle={s.page}><Header title=\"LAST 5 SALES\"/><TextInput value={name} onChangeText={setName} placeholder=\"Card name + set number…\" placeholderTextColor={M} style={s.input}/><Btn disabled={busy} onPress={show}>{busy?'CHECKING SOLD PRICES…':'SHOW LAST 5'}</Btn>{sales.map(x=><View key={x.id} style={s.saleRow}><View><Text style={s.bold}>{x.label}</Text><Text style={s.muted}>{name}</Text></View><Text style={s.salePrice}>{x.price}</Text></View>)}</ScrollView>}"""
-          s=s[:start]+last5+s[end:]
-          s=s.replace("communityBody:{flex:1,flexDirection:'row',gap:8,paddingBottom:8}","communityBody:{flex:1,gap:8,paddingBottom:8}")
-          s=s.replace("channelRail:{width:105,backgroundColor:'#0b0710',borderRadius:14,borderWidth:1,borderColor:LINE}","channelRail:{maxHeight:58,backgroundColor:'#0b0710',borderRadius:14,borderWidth:1,borderColor:LINE}")
-          s=s.replace("channelRailContent:{padding:8,gap:6}","channelRailContent:{padding:8,gap:6,flexDirection:'row',alignItems:'center'}")
-          s=s.replace("channelItem:{paddingVertical:10,paddingHorizontal:7,borderRadius:9}","channelItem:{paddingVertical:9,paddingHorizontal:12,borderRadius:18}")
-          s=s.replace("channelText:{color:M,fontWeight:'800',fontSize:11}","channelText:{color:M,fontWeight:'800',fontSize:12}")
-          s=s.replace("nav:{height:66,borderTopWidth:1,borderTopColor:'#2a1a33',backgroundColor:'#09060c',flexDirection:'row'}","nav:{height:82,paddingBottom:16,borderTopWidth:1,borderTopColor:'#2a1a33',backgroundColor:'#09060c',flexDirection:'row'}")
-          s=s.replace("backDock:{padding:10,borderTopWidth:1,borderTopColor:LINE,backgroundColor:'#09060c'}","backDock:{paddingHorizontal:10,paddingTop:10,paddingBottom:22,borderTopWidth:1,borderTopColor:LINE,backgroundColor:'#09060c'}")
-          p.write_text(s)
-          PY
-      - name: Verify final Tattie source before spending build minutes
+      - name: Verify final source before build minutes
         run: |
           set -e
           grep -q "CARD SCANNER" src/App.js
-          grep -q "CameraView" src/App.js
+          grep -q "SCAN_API" src/App.js
+          grep -q "takePictureAsync" src/App.js
+          grep -q "base64:true" src/App.js
+          grep -q "tattieKnowledge" src/App.js
+          grep -q "AsyncStorage" src/App.js
+          grep -q "LEGENDARY PULL DETECTED" src/App.js
           grep -q "getAvailableVoicesAsync" src/App.js
-          grep -q "localTattieFallback" src/App.js
-          grep -q "LH_Sold=1" src/App.js
           grep -q "WEE TATTIE AI ONLINE" src/App.js
-          grep -q "xp-ai-interface.vercel.app/api/tattie/chat" src/App.js
-          grep -q "xp-ai-interface.vercel.app/api/tattie/download" src/App.js
+          grep -q "api/tattie/chat" src/App.js
+          grep -q "api/tattie/scan" src/App.js
+          grep -q "api/tattie/download" src/App.js
           grep -q '"icon":"./assets/wee-tattie-home.jpg"' app.json
-          ! grep -q "♛ DOMHNALL ∞" src/App.js
-          ! grep -q "Price feed pending" src/App.js
-          ! grep -q "No more eBay jump" src/App.js
-          grep -q "paddingBottom:16" src/App.js
           grep -q "Pokémon" src/App.js
           grep -q "Yu-Gi-Oh" src/App.js
           grep -q "COMMUNITY" src/App.js
-          ! grep -q "AI_GATEWAY_API_KEY" src/App.js
-          ! grep -q "VERCEL_OIDC_TOKEN" src/App.js
-      - run: npm install --no-audit --no-fund
-      - name: Install Expo 54 compatible native modules
-        run: npx expo install expo-camera expo-speech
+          ! grep -q "LAST 5" src/App.js
+          ! grep -q "last5" src/App.js
+          ! grep -q "google.com/search" src/App.js
+          ! grep -q "POWERED BY XP AI" src/App.js
+          ! grep -q "clean Tattie download route" src/App.js
+          ! grep -q "AI_GATEWAY_API_KEY" ../api/tattie/chat.js
+          ! grep -q "VERCEL_OIDC_TOKEN" ../api/tattie/chat.js
+          grep -q "OPENAI_API_KEY" ../api/tattie/chat.js
+          grep -q "OPENAI_API_KEY" ../api/tattie/scan.js
+          grep -q "api.pokemontcg.io" ../api/tattie/scan.js
+          grep -q "ygoprodeck.com" ../api/tattie/scan.js
+      - run: npm ci --no-audit --no-fund
+      - name: Expo dependency health check
+        run: npx expo install --check
       - run: npx expo prebuild --platform android --clean
       - name: Build standalone APK
         run: cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon
