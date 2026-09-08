@@ -18,8 +18,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20.19.0
-          cache: npm
-          cache-dependency-path: tattietcg/package-lock.json
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -60,7 +58,7 @@ jobs:
           grep -q "OPENAI_API_KEY" ../api/tattie/scan.js
           grep -q "api.pokemontcg.io" ../api/tattie/scan.js
           grep -q "ygoprodeck.com" ../api/tattie/scan.js
-      - run: npm ci --no-audit --no-fund
+      - run: npm install --no-audit --no-fund
       - name: Expo dependency health check
         run: npx expo install --check
       - run: npx expo prebuild --platform android --clean
