@@ -28,21 +28,27 @@ jobs:
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
           file assets/wee-tattie-home.jpg | grep -q 'JPEG image data'
-      - name: Fix Tattie home logo rendering
+      - name: Polish Tattie home branding
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('src/App.js')
           s=p.read_text()
-          old="homeLogo:{width:'160%',height:'160%'},homeBrand:{width:'100%',height:140,alignItems:'center',justifyContent:'center',overflow:'hidden',borderRadius:16,backgroundColor:BG}"
-          new="homeLogo:{width:'100%',height:'100%'},homeBrand:{width:'100%',height:190,alignItems:'center',justifyContent:'center',overflow:'visible',borderRadius:16,backgroundColor:BG,paddingHorizontal:8,paddingVertical:8}"
-          if old not in s:
-              raise SystemExit('Expected broken home logo style not found')
-          p.write_text(s.replace(old,new))
+          old="  <View style={s.homeBrand}><Logo home/></View>"
+          new="  <View style={s.homeBrand}><Text style={s.brandName}>TattieTCG</Text><Text style={s.brandTag}>BUY • SELL • TRADE • COLLECT</Text><Text style={s.brandSub}>MORE THAN JUST CARDS</Text></View>"
+          if old not in s: raise SystemExit('home brand block not found')
+          s=s.replace(old,new)
+          marker="headerTitle:{color:W,fontSize:18,fontWeight:'900',maxWidth:170,textAlign:'right'}"
+          styles="homeBrand:{width:'100%',minHeight:190,alignItems:'center',justifyContent:'center',borderRadius:24,backgroundColor:'#0d0712',borderWidth:2,borderColor:P,paddingHorizontal:18,paddingVertical:22,marginTop:4},brandName:{color:W,fontSize:46,fontWeight:'900',fontStyle:'italic',letterSpacing:-2,textShadowColor:P,textShadowRadius:14},brandTag:{color:'#ffd75e',fontSize:14,fontWeight:'900',letterSpacing:.8,marginTop:8,textAlign:'center'},brandSub:{color:'#eadcff',fontSize:16,fontWeight:'900',fontStyle:'italic',marginTop:10,letterSpacing:1},"
+          start=s.index("homeLogo:{width:'160%',height:'160%'},homeBrand:")
+          end=s.index(marker,start)
+          s=s[:start]+styles+s[end:]
+          p.write_text(s)
           PY
-          grep -q "homeLogo:{width:'100%',height:'100%'}" src/App.js
-          grep -q "homeBrand:{width:'100%',height:190" src/App.js
-          ! grep -q "homeLogo:{width:'160%',height:'160%'}" src/App.js
+          grep -q "brandName}>TattieTCG" src/App.js
+          grep -q "BUY • SELL • TRADE • COLLECT" src/App.js
+          grep -q "MORE THAN JUST CARDS" src/App.js
+          ! grep -q "homeLogo:{width:'160%'" src/App.js
       - name: Verify final source before build minutes
         run: |
           set -e
