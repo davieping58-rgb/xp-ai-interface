@@ -28,27 +28,25 @@ jobs:
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
           file assets/wee-tattie-home.jpg | grep -q 'JPEG image data'
-      - name: Polish Tattie home branding
+      - name: Apply approved Tattie home and scanner polish
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('src/App.js')
           s=p.read_text()
-          old="  <View style={s.homeBrand}><Logo home/></View>"
-          new="  <View style={s.homeBrand}><Text style={s.brandName}>TattieTCG</Text><Text style={s.brandTag}>BUY • SELL • TRADE • COLLECT</Text><Text style={s.brandSub}>MORE THAN JUST CARDS</Text></View>"
-          if old not in s: raise SystemExit('home brand block not found')
+          s=s.replace("quality:.45,base64:true","quality:.88,base64:true")
+          old="homeLogo:{width:'160%',height:'160%'},homeBrand:{width:'100%',height:140,alignItems:'center',justifyContent:'center',overflow:'hidden',borderRadius:16,backgroundColor:BG}"
+          new="homeLogo:{width:'100%',height:'100%'},homeBrand:{width:'100%',height:260,alignItems:'center',justifyContent:'center',overflow:'hidden',borderRadius:24,backgroundColor:BG,paddingHorizontal:4,paddingVertical:6,marginTop:4}"
+          if old not in s: raise SystemExit('home logo styles not found')
           s=s.replace(old,new)
-          marker="headerTitle:{color:W,fontSize:18,fontWeight:'900',maxWidth:170,textAlign:'right'}"
-          styles="homeBrand:{width:'100%',minHeight:190,alignItems:'center',justifyContent:'center',borderRadius:24,backgroundColor:'#0d0712',borderWidth:2,borderColor:P,paddingHorizontal:18,paddingVertical:22,marginTop:4},brandName:{color:W,fontSize:46,fontWeight:'900',fontStyle:'italic',letterSpacing:-2,textShadowColor:P,textShadowRadius:14},brandTag:{color:'#ffd75e',fontSize:14,fontWeight:'900',letterSpacing:.8,marginTop:8,textAlign:'center'},brandSub:{color:'#eadcff',fontSize:16,fontWeight:'900',fontStyle:'italic',marginTop:10,letterSpacing:1},"
-          start=s.index("homeLogo:{width:'160%',height:'160%'},homeBrand:")
-          end=s.index(marker,start)
-          s=s[:start]+styles+s[end:]
+          s=s.replace("<Text style={s.scanInstruction}>Position card inside frame</Text>","<View style={s.scanReady}><Ionicons name=\"scan-circle\" size={24} color={BLUE}/><Text style={s.scanInstruction}>Hold card flat inside the frame, then tap the camera</Text></View>")
           p.write_text(s)
           PY
-          grep -q "brandName}>TattieTCG" src/App.js
-          grep -q "BUY • SELL • TRADE • COLLECT" src/App.js
-          grep -q "MORE THAN JUST CARDS" src/App.js
-          ! grep -q "homeLogo:{width:'160%'" src/App.js
+          grep -q "quality:.88" src/App.js
+          grep -q "homeLogo:{width:'100%',height:'100%'" src/App.js
+          grep -q "height:260" src/App.js
+          ! grep -q "brandName}>TattieTCG" src/App.js
+          ! grep -q "quality:.45" src/App.js
       - name: Verify final source before build minutes
         run: |
           set -e
@@ -56,6 +54,7 @@ jobs:
           grep -q "SCAN_API" src/App.js
           grep -q "takePictureAsync" src/App.js
           grep -q "base64:true" src/App.js
+          grep -q "quality:.88" src/App.js
           grep -q "tattieKnowledge" src/App.js
           grep -q "AsyncStorage" src/App.js
           grep -q "LEGENDARY PULL DETECTED" src/App.js
@@ -70,6 +69,7 @@ jobs:
           grep -q "Pokémon" src/App.js
           grep -q "Yu-Gi-Oh" src/App.js
           grep -q "COMMUNITY" src/App.js
+          grep -q "homeLogo:{width:'100%',height:'100%'" src/App.js
           ! grep -q "LAST 5" src/App.js
           ! grep -q "last5" src/App.js
           ! grep -q "google.com/search" src/App.js
