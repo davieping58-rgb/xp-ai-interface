@@ -28,33 +28,42 @@ jobs:
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
           file assets/wee-tattie-home.jpg | grep -q 'JPEG image data'
-      - name: Apply approved Tattie home and scanner polish
+      - name: Apply approved Tattie home and real scanner
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('src/App.js')
           s=p.read_text()
-          s=s.replace("quality:.45,base64:true","quality:.88,base64:true")
-          old="homeLogo:{width:'160%',height:'160%'},homeBrand:{width:'100%',height:140,alignItems:'center',justifyContent:'center',overflow:'hidden',borderRadius:16,backgroundColor:BG}"
-          new="homeLogo:{width:'100%',height:'100%'},homeBrand:{width:'100%',height:260,alignItems:'center',justifyContent:'center',overflow:'hidden',borderRadius:24,backgroundColor:BG,paddingHorizontal:4,paddingVertical:6,marginTop:4}"
-          if old not in s: raise SystemExit('home logo styles not found')
+          cam="import{CameraView,useCameraPermissions}from'expo-camera';"
+          ocr="import TextRecognition from'@react-native-ml-kit/text-recognition';"
+          if ocr not in s:
+              if cam not in s: raise SystemExit('camera import not found')
+              s=s.replace(cam,cam+'\n'+ocr)
+          old="const snap=async()=>{if(busy)return;setBusy(true);setResult(null);try{const p=await cam.current?.takePictureAsync({quality:.45,base64:true,skipProcessing:false});if(!p?.uri||!p?.base64)throw new Error('No photo');setPhoto(p.uri);const r=await fetch(SCAN_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:`data:image/jpeg;base64,${p.base64}`})});const data=await r.json().catch(()=>({}));if(!r.ok||!data.card)throw new Error(data.error||'Card not matched');setResult(data.card);if(data.easterEgg==='magikarp'){speak('LEGENDARY PULL DETECTED... Oh wait... it’s just a Magikarp!');setTimeout(()=>Alert.alert('LEGENDARY PULL DETECTED…','Oh wait… it’s just a Magikarp 😂'),350)}else speak(`Got it. ${data.card.name}.`) }catch(e){Alert.alert('Scanner','Couldn’t identify this card. Try again with the card flat and clearly visible.')}finally{setBusy(false)}};"
+          new="const snap=async()=>{if(busy)return;setBusy(true);setResult(null);try{const p=await cam.current?.takePictureAsync({quality:.9,skipProcessing:false});if(!p?.uri)throw new Error('No photo');setPhoto(p.uri);const ocr=await TextRecognition.recognize(p.uri);const text=String(ocr?.text||'').trim();if(!text)throw new Error('No card text found');const r=await fetch(SCAN_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});const data=await r.json().catch(()=>({}));if(!r.ok||!data.card)throw new Error(data.error||'Card not matched');setResult(data.card);if(data.easterEgg==='magikarp'){speak('LEGENDARY PULL DETECTED... Oh wait... it’s just a Magikarp!');setTimeout(()=>Alert.alert('LEGENDARY PULL DETECTED…','Oh wait… it’s just a Magikarp 😂'),350)}else speak(`Got it. ${data.card.name}.`)}catch(e){Alert.alert('Scanner',String(e?.message||'Couldn’t identify this card. Move closer, avoid glare and scan again.'))}finally{setBusy(false)}};"
+          if old not in s: raise SystemExit('old scanner function not found')
           s=s.replace(old,new)
+          oldstyle="homeLogo:{width:'160%',height:'160%'},homeBrand:{width:'100%',height:140,alignItems:'center',justifyContent:'center',overflow:'hidden',borderRadius:16,backgroundColor:BG}"
+          newstyle="homeLogo:{width:'100%',height:'100%'},homeBrand:{width:'100%',height:260,alignItems:'center',justifyContent:'center',overflow:'hidden',borderRadius:24,backgroundColor:BG,paddingHorizontal:4,paddingVertical:6,marginTop:4}"
+          if oldstyle not in s: raise SystemExit('home logo styles not found')
+          s=s.replace(oldstyle,newstyle)
           s=s.replace("<Text style={s.scanInstruction}>Position card inside frame</Text>","<View style={s.scanReady}><Ionicons name=\"scan-circle\" size={24} color={BLUE}/><Text style={s.scanInstruction}>Hold card flat inside the frame, then tap the camera</Text></View>")
           p.write_text(s)
           PY
-          grep -q "quality:.88" src/App.js
+          grep -q "TextRecognition.recognize" src/App.js
+          grep -q "quality:.9" src/App.js
+          grep -q "JSON.stringify({text})" src/App.js
           grep -q "homeLogo:{width:'100%',height:'100%'" src/App.js
-          grep -q "height:260" src/App.js
-          ! grep -q "brandName}>TattieTCG" src/App.js
           ! grep -q "quality:.45" src/App.js
+          ! grep -q "base64:true" src/App.js
       - name: Verify final source before build minutes
         run: |
           set -e
           grep -q "CARD SCANNER" src/App.js
-          grep -q "SCAN_API" src/App.js
-          grep -q "takePictureAsync" src/App.js
-          grep -q "base64:true" src/App.js
-          grep -q "quality:.88" src/App.js
+          grep -q "@react-native-ml-kit/text-recognition" package.json
+          grep -q "TextRecognition" src/App.js
+          grep -q "TextRecognition.recognize" src/App.js
+          grep -q "JSON.stringify({text})" src/App.js
           grep -q "tattieKnowledge" src/App.js
           grep -q "AsyncStorage" src/App.js
           grep -q "LEGENDARY PULL DETECTED" src/App.js
@@ -75,18 +84,12 @@ jobs:
           ! grep -q "google.com/search" src/App.js
           ! grep -q "POWERED BY XP AI" src/App.js
           ! grep -q "clean Tattie download route" src/App.js
-          ! grep -q "AI_GATEWAY_API_KEY" ../api/tattie/chat.js
-          ! grep -q "VERCEL_OIDC_TOKEN" ../api/tattie/chat.js
-          ! grep -q "ai-gateway.vercel.sh" ../api/tattie/chat.js
-          ! grep -q "ai-gateway.vercel.sh" ../api/tattie/scan.js
-          grep -q "OPENAI_API_KEY" ../api/tattie/chat.js
-          grep -q "OPENAI_API_KEY" ../api/tattie/scan.js
-          grep -q "https://api.openai.com/v1/responses" ../api/tattie/chat.js
-          grep -q "https://api.openai.com/v1/responses" ../api/tattie/scan.js
-          grep -q "gpt-5.6-luna" ../api/tattie/chat.js
-          grep -q "gpt-5.6-luna" ../api/tattie/scan.js
+          ! grep -q "OPENAI_API_KEY" ../api/tattie/scan.js
+          ! grep -q "api.openai.com" ../api/tattie/scan.js
           grep -q "api.pokemontcg.io" ../api/tattie/scan.js
           grep -q "ygoprodeck.com" ../api/tattie/scan.js
+          grep -q "OPENAI_API_KEY" ../api/tattie/chat.js
+          grep -q "https://api.openai.com/v1/responses" ../api/tattie/chat.js
       - run: npm install --no-audit --no-fund
       - name: Expo dependency health check
         run: npx expo install --check
