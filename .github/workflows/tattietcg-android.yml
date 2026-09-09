@@ -40,7 +40,9 @@ jobs:
           grep -q "LEGENDARY PULL DETECTED" src/App.js
           grep -q "getAvailableVoicesAsync" src/App.js
           grep -q "WEE TATTIE AI ONLINE" src/App.js
-          grep -q "api/tattie/chat" src/App.js
+          grep -q "weeTattieAgent" src/App.js
+          grep -q "askWeeTattie" src/App.js
+          grep -q "api/tattie/agent" src/weeTattieAgent.js
           grep -q "api/tattie/scan" src/App.js
           grep -q "api/tattie/download" src/App.js
           grep -q '"icon":"./assets/wee-tattie-home.jpg"' app.json
