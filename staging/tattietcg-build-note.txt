@@ -1,0 +1,1 @@
+Final TattieTCG Android build is prepared from the approved home-screen reference. This staging file is outside the Android workflow path filter.
