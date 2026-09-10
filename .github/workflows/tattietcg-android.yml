@@ -42,7 +42,7 @@ jobs:
           fi
           HOME_BLOB=$(git hash-object assets/home-screen-exact.jpg)
           echo "TATTIE_HOME_BLOB=$HOME_BLOB"
-          test "$HOME_BLOB" = '9bf179ba41a250632d8751a537abf6f8961483c9'
+          test "$HOME_BLOB" = 'a5a93c99287764f4a2e1ffeb4c28ceca6aa6babb'
 
       - name: Rebuild Wee Tattie helper image
         run: |
