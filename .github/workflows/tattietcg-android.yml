@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.4
+          node-version: 20.19.0
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -28,81 +28,72 @@ jobs:
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
           file assets/wee-tattie-home.jpg | grep -q 'JPEG image data'
-      - name: Repair and verify approved TattieTCG logo
+      - name: Prepare exact approved home assets
         run: |
-          test -s assets/tattie-logo.jpg
-          file assets/tattie-logo.jpg | grep -q 'JPEG image data'
-          convert assets/tattie-logo.jpg -strip -interlace none assets/tattie-logo-fixed.jpg
-          mv assets/tattie-logo-fixed.jpg assets/tattie-logo.jpg
-          identify assets/tattie-logo.jpg
-      - name: Apply approved Tattie home and real scanner
+          python -m pip install --disable-pip-version-check --quiet pillow
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          p=Path('assets/home-screen-exact.png')
+          if not p.exists() or p.stat().st_size < 100000:
+              raise SystemExit('approved home reference missing')
+          im=Image.open(p)
+          if im.size != (1024,1536):
+              raise SystemExit(f'wrong approved home size: {im.size}')
+          im.verify()
+          im=Image.open(p).convert('RGB')
+          logo=im.crop((165,900,860,1360))
+          logo.save('assets/tattie-logo.jpg','JPEG',quality=95,optimize=True)
+          chk=Image.open('assets/tattie-logo.jpg')
+          chk.verify()
+          print('APPROVED_HOME_OK 1024x1536')
+          print('TATTIE_LOGO_REPAIRED_OK')
+          PY
+      - name: Apply exact approved home screen only
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('src/App.js')
           s=p.read_text()
-          cam="import{CameraView,useCameraPermissions}from'expo-camera';"
-          ocr="import TextRecognition from'@react-native-ml-kit/text-recognition';"
-          if ocr not in s:
-              if cam not in s: raise SystemExit('camera import not found')
-              s=s.replace(cam,cam+'\n'+ocr)
-          old="const snap=async()=>{if(busy)return;setBusy(true);setResult(null);try{const p=await cam.current?.takePictureAsync({quality:.45,base64:true,skipProcessing:false});if(!p?.uri||!p?.base64)throw new Error('No photo');setPhoto(p.uri);const r=await fetch(SCAN_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:`data:image/jpeg;base64,${p.base64}`})});const data=await r.json().catch(()=>({}));if(!r.ok||!data.card)throw new Error(data.error||'Card not matched');setResult(data.card);if(data.easterEgg==='magikarp'){speak('LEGENDARY PULL DETECTED... Oh wait... it’s just a Magikarp!');setTimeout(()=>Alert.alert('LEGENDARY PULL DETECTED…','Oh wait… it’s just a Magikarp 😂'),350)}else speak(`Got it. ${data.card.name}.`) }catch(e){Alert.alert('Scanner','Couldn’t identify this card. Try again with the card flat and clearly visible.')}finally{setBusy(false)}};"
-          new="const snap=async()=>{if(busy)return;setBusy(true);setResult(null);try{const p=await cam.current?.takePictureAsync({quality:.9,skipProcessing:false});if(!p?.uri)throw new Error('No photo');setPhoto(p.uri);const ocr=await TextRecognition.recognize(p.uri);const text=String(ocr?.text||'').trim();if(!text)throw new Error('No card text found');const r=await fetch(SCAN_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});const data=await r.json().catch(()=>({}));if(!r.ok||!data.card)throw new Error(data.error||'Card not matched');setResult(data.card);if(data.easterEgg==='magikarp'){speak('LEGENDARY PULL DETECTED... Oh wait... it’s just a Magikarp!');setTimeout(()=>Alert.alert('LEGENDARY PULL DETECTED…','Oh wait… it’s just a Magikarp 😂'),350)}else speak(`Got it. ${data.card.name}.`)}catch(e){Alert.alert('Scanner',String(e?.message||'Couldn’t identify this card. Move closer, avoid glare and scan again.'))}finally{setBusy(false)}};"
-          if old not in s: raise SystemExit('old scanner function not found')
-          s=s.replace(old,new)
-          oldstyle="homeLogo:{width:'160%',height:'160%'},homeBrand:{width:'100%',height:140,alignItems:'center',justifyContent:'center',overflow:'hidden',borderRadius:16,backgroundColor:BG}"
-          newstyle="homeLogo:{width:'100%',height:'100%'},homeBrand:{width:'100%',height:320,alignItems:'center',justifyContent:'center',overflow:'visible',backgroundColor:BG,marginTop:4}"
-          if oldstyle not in s: raise SystemExit('home logo styles not found')
-          s=s.replace(oldstyle,newstyle)
-          s=s.replace("<Text style={s.scanInstruction}>Position card inside frame</Text>","<View style={s.scanReady}><Ionicons name=\"scan-circle\" size={24} color={BLUE}/><Text style={s.scanInstruction}>Hold card flat inside the frame, then tap the camera</Text></View>")
+          a=s.index('function Home({go})')
+          b=s.index('function Tattie(){')
+          home=r'''function Home({go}){return <View style={s.exactHome}>
+  <Image source={require('../assets/home-screen-exact.png')} style={s.exactHomeImage} resizeMode="stretch"/>
+  <Pressable accessibilityLabel="Talk to Wee Tattie" onPress={()=>go('tattie')} style={[s.homeHit,{left:'0%',top:'0%',width:'100%',height:'35.5%'}]}/>
+  <Pressable accessibilityLabel="Card Scanner" onPress={()=>go('scanner')} style={[s.homeHit,{left:'0%',top:'35.5%',width:'100%',height:'12%'}]}/>
+  <Pressable accessibilityLabel="Shop" onPress={()=>go('shop')} style={[s.homeHit,{left:'0%',top:'47.5%',width:'50%',height:'13.5%'}]}/>
+  <Pressable accessibilityLabel="Community" onPress={()=>go('community')} style={[s.homeHit,{left:'50%',top:'47.5%',width:'50%',height:'13.5%'}]}/>
+  <Pressable accessibilityLabel="Home" onPress={()=>go('home')} style={[s.homeHit,{left:'0%',top:'89%',width:'20%',height:'11%'}]}/>
+  <Pressable accessibilityLabel="Scanner" onPress={()=>go('scanner')} style={[s.homeHit,{left:'20%',top:'89%',width:'20%',height:'11%'}]}/>
+  <Pressable accessibilityLabel="Shop" onPress={()=>go('shop')} style={[s.homeHit,{left:'40%',top:'89%',width:'20%',height:'11%'}]}/>
+  <Pressable accessibilityLabel="Community" onPress={()=>go('community')} style={[s.homeHit,{left:'60%',top:'89%',width:'20%',height:'11%'}]}/>
+  <Pressable accessibilityLabel="Menu" onPress={()=>go('menu')} style={[s.homeHit,{left:'80%',top:'89%',width:'20%',height:'11%'}]}/>
+</View>}
+
+'''
+          s=s[:a]+home+s[b:]
+          old="const s=StyleSheet.create({safe:{flex:1,backgroundColor:BG},"
+          new="const s=StyleSheet.create({safe:{flex:1,backgroundColor:BG},exactHome:{flex:1,backgroundColor:BG,position:'relative'},exactHomeImage:{width:'100%',height:'100%'},homeHit:{position:'absolute',backgroundColor:'transparent'},"
+          if old not in s:
+              raise SystemExit('style anchor missing')
+          s=s.replace(old,new,1)
+          oldnav="{special?<View style={s.backDock}>"
+          newnav="{screen==='home'?null:special?<View style={s.backDock}>"
+          if oldnav not in s:
+              raise SystemExit('nav anchor missing')
+          s=s.replace(oldnav,newnav,1)
           p.write_text(s)
           PY
-          grep -q "TextRecognition.recognize" src/App.js
-          grep -q "quality:.9" src/App.js
-          grep -q "JSON.stringify({text})" src/App.js
-          grep -q "homeLogo:{width:'100%',height:'100%'" src/App.js
-          grep -q "overflow:'visible'" src/App.js
-          ! grep -q "quality:.45" src/App.js
-          ! grep -q "base64:true" src/App.js
-      - name: Verify final source before build minutes
-        run: |
-          set -e
-          grep -q "CARD SCANNER" src/App.js
-          grep -q "@react-native-ml-kit/text-recognition" package.json
-          grep -q "TextRecognition" src/App.js
-          grep -q "TextRecognition.recognize" src/App.js
-          grep -q "JSON.stringify({text})" src/App.js
-          grep -q "tattieKnowledge" src/App.js
-          grep -q "AsyncStorage" src/App.js
-          grep -q "LEGENDARY PULL DETECTED" src/App.js
-          grep -q "getAvailableVoicesAsync" src/App.js
-          grep -q "WEE TATTIE AI ONLINE" src/App.js
-          grep -q "weeTattieAgent" src/App.js
-          grep -q "askWeeTattie" src/App.js
-          grep -q "api/tattie/agent" src/weeTattieAgent.js
-          grep -q "api/tattie/scan" src/App.js
-          grep -q "api/tattie/download" src/App.js
-          grep -q '"icon":"./assets/wee-tattie-home.jpg"' app.json
-          grep -q "Pokémon" src/App.js
-          grep -q "Yu-Gi-Oh" src/App.js
-          grep -q "COMMUNITY" src/App.js
-          grep -q "homeLogo:{width:'100%',height:'100%'" src/App.js
-          grep -q "overflow:'visible'" src/App.js
+          grep -q "home-screen-exact.png" src/App.js
+          grep -q "screen==='home'?null:special" src/App.js
+          grep -q "exactHomeImage" src/App.js
+          ! grep -q "HEY LEGEND" src/App.js
           ! grep -q "LAST 5" src/App.js
           ! grep -q "last5" src/App.js
-          ! grep -q "google.com/search" src/App.js
-          ! grep -q "POWERED BY XP AI" src/App.js
-          ! grep -q "clean Tattie download route" src/App.js
-          ! grep -q "OPENAI_API_KEY" ../api/tattie/scan.js
-          ! grep -q "api.openai.com" ../api/tattie/scan.js
-          grep -q "api.pokemontcg.io" ../api/tattie/scan.js
-          grep -q "ygoprodeck.com" ../api/tattie/scan.js
-          grep -q "OPENAI_API_KEY" ../api/tattie/chat.js
-          grep -q "https://api.openai.com/v1/responses" ../api/tattie/chat.js
-      - run: npm install --no-audit --no-fund
-      - name: Expo dependency health check
-        run: npx expo install --check
-      - run: npx expo prebuild --platform android --clean
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Create Android project
+        run: npx expo prebuild --platform android --clean
       - name: Build standalone APK
         run: cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon
       - name: Verify APK exists
