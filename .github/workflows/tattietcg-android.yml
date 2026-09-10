@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: 20.19.4
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -28,10 +28,13 @@ jobs:
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
           file assets/wee-tattie-home.jpg | grep -q 'JPEG image data'
-      - name: Verify approved TattieTCG logo
+      - name: Repair and verify approved TattieTCG logo
         run: |
           test -s assets/tattie-logo.jpg
           file assets/tattie-logo.jpg | grep -q 'JPEG image data'
+          convert assets/tattie-logo.jpg -strip -interlace none assets/tattie-logo-fixed.jpg
+          mv assets/tattie-logo-fixed.jpg assets/tattie-logo.jpg
+          identify assets/tattie-logo.jpg
       - name: Apply approved Tattie home and real scanner
         run: |
           python - <<'PY'
