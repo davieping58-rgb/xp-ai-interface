@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20.19.0
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
@@ -28,7 +28,7 @@ jobs:
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
           file assets/wee-tattie-home.jpg | grep -q 'JPEG image data'
-      - name: Prepare approved home image
+      - name: Prepare exact approved home assets
         run: |
           python -m pip install --disable-pip-version-check --quiet pillow
           python - <<'PY'
@@ -38,7 +38,7 @@ jobs:
           src=Path('../designs/mockup.png')
           dst=Path('assets/home-screen-exact.png')
           if not src.exists() or src.stat().st_size < 100000:
-              raise SystemExit('approved home mockup missing')
+              raise SystemExit('approved Tattie mockup missing')
           im=Image.open(src)
           im.verify()
           shutil.copyfile(src,dst)
@@ -47,10 +47,10 @@ jobs:
           logo=im.crop((int(w*.16),int(h*.58),int(w*.84),int(h*.89)))
           logo.save('assets/tattie-logo.jpg','JPEG',quality=95,optimize=True)
           Image.open('assets/tattie-logo.jpg').verify()
-          print(f'APPROVED_HOME_OK {w}x{h}')
+          print('APPROVED_HOME_OK',w,h)
           print('TATTIE_LOGO_REPAIRED_OK')
           PY
-      - name: Apply approved home screen only
+      - name: Apply exact approved home screen only
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -75,11 +75,13 @@ jobs:
           s=s[:a]+home+s[b:]
           old="const s=StyleSheet.create({safe:{flex:1,backgroundColor:BG},"
           new="const s=StyleSheet.create({safe:{flex:1,backgroundColor:BG},exactHome:{flex:1,backgroundColor:BG,position:'relative'},exactHomeImage:{width:'100%',height:'100%'},homeHit:{position:'absolute',backgroundColor:'transparent'},"
-          if old not in s: raise SystemExit('style anchor missing')
+          if old not in s:
+              raise SystemExit('style anchor missing')
           s=s.replace(old,new,1)
           oldnav="{special?<View style={s.backDock}>"
           newnav="{screen==='home'?null:special?<View style={s.backDock}>"
-          if oldnav not in s: raise SystemExit('nav anchor missing')
+          if oldnav not in s:
+              raise SystemExit('nav anchor missing')
           s=s.replace(oldnav,newnav,1)
           p.write_text(s)
           PY
