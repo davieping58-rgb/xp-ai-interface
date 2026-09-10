@@ -29,20 +29,24 @@ jobs:
         run: |
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
-      - name: Validate approved home screen
+      - name: Validate supplied home image and repair logo
         run: |
           python -m pip install --disable-pip-version-check --quiet pillow
           python - <<'PY'
           from PIL import Image
           from pathlib import Path
-          p=Path('assets/home-screen-exact.png')
-          if not p.exists() or p.stat().st_size < 100000:
-              raise SystemExit('approved Tattie home image missing')
-          im=Image.open(p); im.verify()
+          p=Path('assets/home-screen-exact.jpg')
+          if not p.exists() or p.stat().st_size < 5000:
+              raise SystemExit('supplied Tattie home image missing')
           im=Image.open(p)
-          print('APPROVED_HOME_OK', im.size, p.stat().st_size)
+          im.verify()
+          im=Image.open(p).convert('RGB')
+          w,h=im.size
+          im.crop((int(w*.16),int(h*.58),int(w*.84),int(h*.89))).save('assets/tattie-logo.jpg','JPEG',quality=95,optimize=True)
+          Image.open('assets/tattie-logo.jpg').verify()
+          print('SUPPLIED_HOME_OK',w,h)
           PY
-      - name: Apply exact home screen
+      - name: Apply supplied home screen only
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -50,32 +54,21 @@ jobs:
           s=p.read_text()
           a=s.index('function Home({go})')
           b=s.index('function Tattie(){')
-          home="""function Home({go}){return <View style={s.exactHome}>
-  <Image source={require('../assets/home-screen-exact.png')} style={s.exactHomeImage} resizeMode=\"stretch\"/>
-  <Pressable accessibilityLabel=\"Talk to Wee Tattie\" onPress={()=>go('tattie')} style={[s.homeHit,{left:'0%',top:'0%',width:'100%',height:'35.5%'}]}/>
-  <Pressable accessibilityLabel=\"Card Scanner\" onPress={()=>go('scanner')} style={[s.homeHit,{left:'0%',top:'35.5%',width:'100%',height:'12%'}]}/>
-  <Pressable accessibilityLabel=\"Shop\" onPress={()=>go('shop')} style={[s.homeHit,{left:'0%',top:'47.5%',width:'50%',height:'13.5%'}]}/>
-  <Pressable accessibilityLabel=\"Community\" onPress={()=>go('community')} style={[s.homeHit,{left:'50%',top:'47.5%',width:'50%',height:'13.5%'}]}/>
-  <Pressable accessibilityLabel=\"Home\" onPress={()=>go('home')} style={[s.homeHit,{left:'0%',top:'89%',width:'20%',height:'11%'}]}/>
-  <Pressable accessibilityLabel=\"Scanner\" onPress={()=>go('scanner')} style={[s.homeHit,{left:'20%',top:'89%',width:'20%',height:'11%'}]}/>
-  <Pressable accessibilityLabel=\"Shop\" onPress={()=>go('shop')} style={[s.homeHit,{left:'40%',top:'89%',width:'20%',height:'11%'}]}/>
-  <Pressable accessibilityLabel=\"Community\" onPress={()=>go('community')} style={[s.homeHit,{left:'60%',top:'89%',width:'20%',height:'11%'}]}/>
-  <Pressable accessibilityLabel=\"Menu\" onPress={()=>go('menu')} style={[s.homeHit,{left:'80%',top:'89%',width:'20%',height:'11%'}]}/>
-</View>}
-
-"""
+          home="function Home({go}){return <View style={s.exactHome}>\n  <Image source={require('../assets/home-screen-exact.jpg')} style={s.exactHomeImage} resizeMode=\"stretch\"/>\n  <Pressable accessibilityLabel=\"Talk to Wee Tattie\" onPress={()=>go('tattie')} style={[s.homeHit,{left:'0%',top:'0%',width:'100%',height:'35.5%'}]}/>\n  <Pressable accessibilityLabel=\"Card Scanner\" onPress={()=>go('scanner')} style={[s.homeHit,{left:'0%',top:'35.5%',width:'100%',height:'12%'}]}/>\n  <Pressable accessibilityLabel=\"Shop\" onPress={()=>go('shop')} style={[s.homeHit,{left:'0%',top:'47.5%',width:'50%',height:'13.5%'}]}/>\n  <Pressable accessibilityLabel=\"Community\" onPress={()=>go('community')} style={[s.homeHit,{left:'50%',top:'47.5%',width:'50%',height:'13.5%'}]}/>\n  <Pressable accessibilityLabel=\"Home\" onPress={()=>go('home')} style={[s.homeHit,{left:'0%',top:'89%',width:'20%',height:'11%'}]}/>\n  <Pressable accessibilityLabel=\"Scanner\" onPress={()=>go('scanner')} style={[s.homeHit,{left:'20%',top:'89%',width:'20%',height:'11%'}]}/>\n  <Pressable accessibilityLabel=\"Shop\" onPress={()=>go('shop')} style={[s.homeHit,{left:'40%',top:'89%',width:'20%',height:'11%'}]}/>\n  <Pressable accessibilityLabel=\"Community\" onPress={()=>go('community')} style={[s.homeHit,{left:'60%',top:'89%',width:'20%',height:'11%'}]}/>\n  <Pressable accessibilityLabel=\"Menu\" onPress={()=>go('menu')} style={[s.homeHit,{left:'80%',top:'89%',width:'20%',height:'11%'}]}/>\n</View>}\n\n"
           s=s[:a]+home+s[b:]
-          anchor="const s=StyleSheet.create({safe:{flex:1,backgroundColor:BG},"
-          replacement="const s=StyleSheet.create({safe:{flex:1,backgroundColor:BG},exactHome:{flex:1,backgroundColor:'#000',position:'relative'},exactHomeImage:{position:'absolute',left:0,top:0,right:0,bottom:0,width:'100%',height:'100%'},homeHit:{position:'absolute',backgroundColor:'transparent'},"
-          if anchor not in s: raise SystemExit('style anchor missing')
-          s=s.replace(anchor,replacement,1)
-          nav="{special?<View style={s.backDock}>"
-          if nav not in s: raise SystemExit('nav anchor missing')
-          s=s.replace(nav,"{screen==='home'?null:special?<View style={s.backDock}>",1)
-          s=s.replace('<StatusBar style="light"/>','<StatusBar hidden/>')
+          old="const s=StyleSheet.create({safe:{flex:1,backgroundColor:BG},"
+          new="const s=StyleSheet.create({safe:{flex:1,backgroundColor:BG},exactHome:{flex:1,backgroundColor:BG,position:'relative'},exactHomeImage:{width:'100%',height:'100%'},homeHit:{position:'absolute',backgroundColor:'transparent'},"
+          if old not in s:
+              raise SystemExit('style anchor missing')
+          s=s.replace(old,new,1)
+          oldnav="{special?<View style={s.backDock}>"
+          newnav="{screen==='home'?null:special?<View style={s.backDock}>"
+          if oldnav not in s:
+              raise SystemExit('nav anchor missing')
+          s=s.replace(oldnav,newnav,1)
           p.write_text(s)
           PY
-          grep -q "home-screen-exact.png" src/App.js
+          grep -q "home-screen-exact.jpg" src/App.js
           grep -q "screen==='home'?null:special" src/App.js
           ! grep -q "HEY LEGEND" src/App.js
           ! grep -q "LAST 5" src/App.js
