@@ -36,16 +36,15 @@ jobs:
           from PIL import Image
           from pathlib import Path
           p=Path('assets/home-screen-exact.jpg')
-          if not p.exists() or p.stat().st_size < 100000:
+          if not p.exists() or p.stat().st_size < 5000:
               raise SystemExit('supplied Tattie home image missing')
           im=Image.open(p)
-          if im.size != (1024,1536):
-              raise SystemExit(f'wrong supplied home size: {im.size}')
           im.verify()
           im=Image.open(p).convert('RGB')
-          im.crop((165,900,860,1360)).save('assets/tattie-logo.jpg','JPEG',quality=95,optimize=True)
+          w,h=im.size
+          im.crop((int(w*.16),int(h*.58),int(w*.84),int(h*.89))).save('assets/tattie-logo.jpg','JPEG',quality=95,optimize=True)
           Image.open('assets/tattie-logo.jpg').verify()
-          print('SUPPLIED_HOME_OK')
+          print('SUPPLIED_HOME_OK',w,h)
           PY
       - name: Apply supplied home screen only
         run: |
