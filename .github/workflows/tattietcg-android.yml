@@ -28,6 +28,11 @@ jobs:
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
           file assets/wee-tattie-home.jpg | grep -q 'JPEG image data'
+      - name: Apply approved TattieTCG logo
+        run: |
+          base64 -d ../designs/tattie-logo-approved.b64 > assets/tattie-logo.jpg
+          test -s assets/tattie-logo.jpg
+          file assets/tattie-logo.jpg | grep -q 'JPEG image data'
       - name: Apply approved Tattie home and real scanner
         run: |
           python - <<'PY'
