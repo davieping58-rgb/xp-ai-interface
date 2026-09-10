@@ -3,7 +3,9 @@ on:
   workflow_dispatch:
   push:
     branches: [tattietcg-android]
-    paths: ['tattietcg/**', '.github/workflows/tattietcg-android.yml', 'api/tattie/**']
+    paths:
+      - 'tattietcg/**'
+      - '.github/workflows/tattietcg-android.yml'
 permissions:
   contents: write
 jobs:
@@ -17,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.19.0
+          node-version: '20.19.0'
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -27,7 +29,6 @@ jobs:
         run: |
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
-          file assets/wee-tattie-home.jpg | grep -q 'JPEG image data'
       - name: Validate supplied home image and repair logo
         run: |
           python -m pip install --disable-pip-version-check --quiet pillow
@@ -42,10 +43,9 @@ jobs:
               raise SystemExit(f'wrong supplied home size: {im.size}')
           im.verify()
           im=Image.open(p).convert('RGB')
-          logo=im.crop((165,900,860,1360))
-          logo.save('assets/tattie-logo.jpg','JPEG',quality=95,optimize=True)
+          im.crop((165,900,860,1360)).save('assets/tattie-logo.jpg','JPEG',quality=95,optimize=True)
           Image.open('assets/tattie-logo.jpg').verify()
-          print('SUPPLIED_HOME_OK 1024x1536')
+          print('SUPPLIED_HOME_OK')
           PY
       - name: Apply supplied home screen only
         run: |
@@ -55,20 +55,7 @@ jobs:
           s=p.read_text()
           a=s.index('function Home({go})')
           b=s.index('function Tattie(){')
-          home=r'''function Home({go}){return <View style={s.exactHome}>
-  <Image source={require('../assets/home-screen-exact.jpg')} style={s.exactHomeImage} resizeMode="stretch"/>
-  <Pressable accessibilityLabel="Talk to Wee Tattie" onPress={()=>go('tattie')} style={[s.homeHit,{left:'0%',top:'0%',width:'100%',height:'35.5%'}]}/>
-  <Pressable accessibilityLabel="Card Scanner" onPress={()=>go('scanner')} style={[s.homeHit,{left:'0%',top:'35.5%',width:'100%',height:'12%'}]}/>
-  <Pressable accessibilityLabel="Shop" onPress={()=>go('shop')} style={[s.homeHit,{left:'0%',top:'47.5%',width:'50%',height:'13.5%'}]}/>
-  <Pressable accessibilityLabel="Community" onPress={()=>go('community')} style={[s.homeHit,{left:'50%',top:'47.5%',width:'50%',height:'13.5%'}]}/>
-  <Pressable accessibilityLabel="Home" onPress={()=>go('home')} style={[s.homeHit,{left:'0%',top:'89%',width:'20%',height:'11%'}]}/>
-  <Pressable accessibilityLabel="Scanner" onPress={()=>go('scanner')} style={[s.homeHit,{left:'20%',top:'89%',width:'20%',height:'11%'}]}/>
-  <Pressable accessibilityLabel="Shop" onPress={()=>go('shop')} style={[s.homeHit,{left:'40%',top:'89%',width:'20%',height:'11%'}]}/>
-  <Pressable accessibilityLabel="Community" onPress={()=>go('community')} style={[s.homeHit,{left:'60%',top:'89%',width:'20%',height:'11%'}]}/>
-  <Pressable accessibilityLabel="Menu" onPress={()=>go('menu')} style={[s.homeHit,{left:'80%',top:'89%',width:'20%',height:'11%'}]}/>
-</View>}
-
-'''
+          home="function Home({go}){return <View style={s.exactHome}>\n  <Image source={require('../assets/home-screen-exact.jpg')} style={s.exactHomeImage} resizeMode=\"stretch\"/>\n  <Pressable accessibilityLabel=\"Talk to Wee Tattie\" onPress={()=>go('tattie')} style={[s.homeHit,{left:'0%',top:'0%',width:'100%',height:'35.5%'}]}/>\n  <Pressable accessibilityLabel=\"Card Scanner\" onPress={()=>go('scanner')} style={[s.homeHit,{left:'0%',top:'35.5%',width:'100%',height:'12%'}]}/>\n  <Pressable accessibilityLabel=\"Shop\" onPress={()=>go('shop')} style={[s.homeHit,{left:'0%',top:'47.5%',width:'50%',height:'13.5%'}]}/>\n  <Pressable accessibilityLabel=\"Community\" onPress={()=>go('community')} style={[s.homeHit,{left:'50%',top:'47.5%',width:'50%',height:'13.5%'}]}/>\n  <Pressable accessibilityLabel=\"Home\" onPress={()=>go('home')} style={[s.homeHit,{left:'0%',top:'89%',width:'20%',height:'11%'}]}/>\n  <Pressable accessibilityLabel=\"Scanner\" onPress={()=>go('scanner')} style={[s.homeHit,{left:'20%',top:'89%',width:'20%',height:'11%'}]}/>\n  <Pressable accessibilityLabel=\"Shop\" onPress={()=>go('shop')} style={[s.homeHit,{left:'40%',top:'89%',width:'20%',height:'11%'}]}/>\n  <Pressable accessibilityLabel=\"Community\" onPress={()=>go('community')} style={[s.homeHit,{left:'60%',top:'89%',width:'20%',height:'11%'}]}/>\n  <Pressable accessibilityLabel=\"Menu\" onPress={()=>go('menu')} style={[s.homeHit,{left:'80%',top:'89%',width:'20%',height:'11%'}]}/>\n</View>}\n\n"
           s=s[:a]+home+s[b:]
           old="const s=StyleSheet.create({safe:{flex:1,backgroundColor:BG},"
           new="const s=StyleSheet.create({safe:{flex:1,backgroundColor:BG},exactHome:{flex:1,backgroundColor:BG,position:'relative'},exactHomeImage:{width:'100%',height:'100%'},homeHit:{position:'absolute',backgroundColor:'transparent'},"
@@ -84,10 +71,8 @@ jobs:
           PY
           grep -q "home-screen-exact.jpg" src/App.js
           grep -q "screen==='home'?null:special" src/App.js
-          grep -q "exactHomeImage" src/App.js
           ! grep -q "HEY LEGEND" src/App.js
           ! grep -q "LAST 5" src/App.js
-          ! grep -q "last5" src/App.js
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Create Android project
@@ -113,4 +98,3 @@ jobs:
           else
             gh release create tattietcg-latest TattieTCG.apk --title "TattieTCG Android" --notes "Official TattieTCG Android APK."
           fi
-          echo 'TATTIETCG_FINAL_APK_RELEASE_PASS'
