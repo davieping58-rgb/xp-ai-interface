@@ -48,7 +48,7 @@ jobs:
           if old not in s: raise SystemExit('old scanner function not found')
           s=s.replace(old,new)
           oldstyle="homeLogo:{width:'160%',height:'160%'},homeBrand:{width:'100%',height:140,alignItems:'center',justifyContent:'center',overflow:'hidden',borderRadius:16,backgroundColor:BG}"
-          newstyle="homeLogo:{width:'100%',height:'100%'},homeBrand:{width:'100%',height:260,alignItems:'center',justifyContent:'center',overflow:'hidden',borderRadius:24,backgroundColor:BG,paddingHorizontal:4,paddingVertical:6,marginTop:4}"
+          newstyle="homeLogo:{width:'100%',height:'100%'},homeBrand:{width:'100%',height:320,alignItems:'center',justifyContent:'center',overflow:'visible',backgroundColor:BG,marginTop:4}"
           if oldstyle not in s: raise SystemExit('home logo styles not found')
           s=s.replace(oldstyle,newstyle)
           s=s.replace("<Text style={s.scanInstruction}>Position card inside frame</Text>","<View style={s.scanReady}><Ionicons name=\"scan-circle\" size={24} color={BLUE}/><Text style={s.scanInstruction}>Hold card flat inside the frame, then tap the camera</Text></View>")
@@ -58,6 +58,7 @@ jobs:
           grep -q "quality:.9" src/App.js
           grep -q "JSON.stringify({text})" src/App.js
           grep -q "homeLogo:{width:'100%',height:'100%'" src/App.js
+          grep -q "overflow:'visible'" src/App.js
           ! grep -q "quality:.45" src/App.js
           ! grep -q "base64:true" src/App.js
       - name: Verify final source before build minutes
@@ -83,6 +84,7 @@ jobs:
           grep -q "Yu-Gi-Oh" src/App.js
           grep -q "COMMUNITY" src/App.js
           grep -q "homeLogo:{width:'100%',height:'100%'" src/App.js
+          grep -q "overflow:'visible'" src/App.js
           ! grep -q "LAST 5" src/App.js
           ! grep -q "last5" src/App.js
           ! grep -q "google.com/search" src/App.js
