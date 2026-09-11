@@ -21,7 +21,7 @@ function Btn({children,onPress,outline=false}){return <Pressable onPress={onPres
 function Header({title}){return <View style={s.header}><Image source={require('../assets/tattie-logo.jpg')} style={s.logo} resizeMode="contain"/><Text style={s.headerTitle}>{title}</Text></View>}
 
 function Home({go}){return <View style={s.exactHome}>
-  <Image source={require('../assets/home-screen-exact.jpg')} style={s.exactHomeImage} resizeMode="stretch"/>
+  <Image source={require('../assets/home-screen-exact.png')} style={s.exactHomeImage} resizeMode="stretch"/>
   <Pressable accessibilityLabel="Talk to Wee Tattie" onPress={()=>go('tattie')} style={[s.hit,{left:'0%',top:'0%',width:'100%',height:'35.5%'}]}/>
   <Pressable accessibilityLabel="Card Scanner" onPress={()=>go('scanner')} style={[s.hit,{left:'0%',top:'35.5%',width:'100%',height:'12%'}]}/>
   <Pressable accessibilityLabel="Shop" onPress={()=>go('shop')} style={[s.hit,{left:'0%',top:'47.5%',width:'50%',height:'13.5%'}]}/>

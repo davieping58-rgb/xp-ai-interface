@@ -37,14 +37,14 @@ jobs:
         run: |
           set -e
           grep -q "./src/AppFinal" index.js
-          grep -q "home-screen-exact.jpg" src/AppFinal.js
+          grep -q "home-screen-exact.png" src/AppFinal.js
           grep -q "function Scanner" src/AppFinal.js
           grep -q "function Tattie" src/AppFinal.js
           grep -q "function Community" src/AppFinal.js
           grep -q '"name": "TattieTCG"' app.json
           grep -q '"package": "uk.domhnall.tattietcg"' app.json
           grep -q '"versionCode": 23' app.json
-          test "$(git hash-object assets/home-screen-exact.jpg)" = 'a5a93c99287764f4a2e1ffeb4c28ceca6aa6babb'
+          test "$(git hash-object assets/home-screen-exact.png)" = '7011fa135d7219ce23ad1b700b3d84394e45ff8b'
           if grep -Eqi 'XP Control|Holographic Control|XP Face|xp_face|assets/xp' src/AppFinal.js app.json index.js; then
             echo 'XP contamination detected'
             exit 1
@@ -63,7 +63,7 @@ jobs:
           python -m pip install --disable-pip-version-check --quiet pillow
           python - <<'PY'
           from PIL import Image
-          p='assets/home-screen-exact.jpg'
+          p='assets/home-screen-exact.png'
           im=Image.open(p)
           im.verify()
           im=Image.open(p)
@@ -109,7 +109,7 @@ jobs:
         run: |
           python - <<'PY'
           from PIL import Image,ImageChops,ImageStat
-          ref=Image.open('assets/home-screen-exact.jpg').convert('RGB').resize((128,192))
+          ref=Image.open('assets/home-screen-exact.png').convert('RGB').resize((128,192))
           scr=Image.open('tattie-home-runtime.png').convert('RGB')
           sw,sh=scr.size
           best=999
