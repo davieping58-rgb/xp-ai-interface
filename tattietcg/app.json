@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name":"TattieTCG",
-    "slug":"tattietcg",
-    "version":"2.0.2",
-    "orientation":"portrait",
-    "userInterfaceStyle":"dark",
-    "icon":"./assets/wee-tattie-home.jpg",
-    "android":{
-      "package":"uk.domhnall.tattietcg",
-      "versionCode":22,
-      "icon":"./assets/wee-tattie-home.jpg"
+    "name": "TattieTCG",
+    "slug": "tattietcg",
+    "version": "2.0.3",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/wee-tattie-home.jpg",
+    "android": {
+      "package": "uk.domhnall.tattietcg",
+      "versionCode": 23,
+      "icon": "./assets/wee-tattie-home.jpg"
     },
-    "ios":{
-      "supportsTablet":true,
-      "bundleIdentifier":"uk.domhnall.tattietcg"
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "uk.domhnall.tattietcg"
     }
   }
 }

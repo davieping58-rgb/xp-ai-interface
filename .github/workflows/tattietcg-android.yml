@@ -1,51 +1,64 @@
 name: TattieTCG Android APK
+
 on:
   workflow_dispatch:
   push:
-    branches: [tattietcg-android]
+    branches:
+      - tattietcg-android
     paths:
       - 'tattietcg/**'
       - '.github/workflows/tattietcg-android.yml'
+
 permissions:
   contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: tattietcg
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20.19.0'
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - uses: android-actions/setup-android@v3
 
-      - name: Verify correct Tattie source
+      - name: Verify final Tattie source before build
         run: |
           set -e
-          grep -q '"name":"TattieTCG"' app.json
-          grep -q 'uk.domhnall.tattietcg' app.json
-          grep -q 'function Scanner' src/App.js
-          grep -q 'function Tattie' src/App.js
-          grep -q 'function Community' src/App.js
-          if grep -Eqi 'XP Control|Holographic Control|XP Face|xp_face|assets/xp' src/App.js app.json; then
-            echo 'XP contamination detected in Tattie source'
+          grep -q "./src/AppFinal" index.js
+          grep -q "home-screen-exact.jpg" src/AppFinal.js
+          grep -q "function Scanner" src/AppFinal.js
+          grep -q "function Tattie" src/AppFinal.js
+          grep -q "function Community" src/AppFinal.js
+          grep -q '"name": "TattieTCG"' app.json
+          grep -q '"package": "uk.domhnall.tattietcg"' app.json
+          grep -q '"versionCode": 23' app.json
+          test "$(git hash-object assets/home-screen-exact.jpg)" = 'a5a93c99287764f4a2e1ffeb4c28ceca6aa6babb'
+          if grep -Eqi 'XP Control|Holographic Control|XP Face|xp_face|assets/xp' src/AppFinal.js app.json index.js; then
+            echo 'XP contamination detected'
             exit 1
           fi
-          test "$(git hash-object assets/home-screen-exact.jpg)" = 'a5a93c99287764f4a2e1ffeb4c28ceca6aa6babb'
+          ! grep -q 'HEY LEGEND' src/AppFinal.js
+          ! grep -q 'LAST 5' src/AppFinal.js
+          echo 'SOURCE_PRECHECK_PASS'
 
       - name: Rebuild Wee Tattie helper image
         run: |
           base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
           test -s assets/wee-tattie-home.jpg
 
-      - name: Validate approved home image
+      - name: Validate approved home artwork
         run: |
           python -m pip install --disable-pip-version-check --quiet pillow
           python - <<'PY'
@@ -53,85 +66,88 @@ jobs:
           p='assets/home-screen-exact.jpg'
           im=Image.open(p)
           im.verify()
-          im=Image.open(p).convert('RGB')
+          im=Image.open(p)
           if im.size != (1024,1536):
-              raise SystemExit(f'wrong approved home dimensions {im.size}')
-          im.crop((164,891,860,1367)).save('assets/tattie-logo.jpg','JPEG',quality=95,optimize=True)
-          print('APPROVED_TATTIE_HOME_OK',im.size)
+              raise SystemExit(f'wrong home dimensions: {im.size}')
+          print('APPROVED_HOME_OK', im.size)
           PY
-
-      - name: Apply approved Tattie home only
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('src/App.js')
-          s=p.read_text()
-          a=s.index('function Home({go})')
-          b=s.index('function Tattie(){')
-          home="""function Home({go}){return <View style={s.exactHome}>
-  <Image source={require('../assets/home-screen-exact.jpg')} style={s.exactHomeImage} resizeMode="stretch"/>
-  <Pressable onPress={()=>go('tattie')} style={[s.homeHit,{left:'0%',top:'0%',width:'100%',height:'35.5%'}]}/>
-  <Pressable onPress={()=>go('scanner')} style={[s.homeHit,{left:'0%',top:'35.5%',width:'100%',height:'12%'}]}/>
-  <Pressable onPress={()=>go('shop')} style={[s.homeHit,{left:'0%',top:'47.5%',width:'50%',height:'13.5%'}]}/>
-  <Pressable onPress={()=>go('community')} style={[s.homeHit,{left:'50%',top:'47.5%',width:'50%',height:'13.5%'}]}/>
-  <Pressable onPress={()=>go('home')} style={[s.homeHit,{left:'0%',top:'89%',width:'20%',height:'11%'}]}/>
-  <Pressable onPress={()=>go('scanner')} style={[s.homeHit,{left:'20%',top:'89%',width:'20%',height:'11%'}]}/>
-  <Pressable onPress={()=>go('shop')} style={[s.homeHit,{left:'40%',top:'89%',width:'20%',height:'11%'}]}/>
-  <Pressable onPress={()=>go('community')} style={[s.homeHit,{left:'60%',top:'89%',width:'20%',height:'11%'}]}/>
-  <Pressable onPress={()=>go('menu')} style={[s.homeHit,{left:'80%',top:'89%',width:'20%',height:'11%'}]}/>
-</View>}\n\n"""
-          s=s[:a]+home+s[b:]
-          style_anchor="const s=StyleSheet.create({safe:{flex:1,backgroundColor:BG},"
-          style_repl="const s=StyleSheet.create({safe:{flex:1,backgroundColor:BG},exactHome:{flex:1,backgroundColor:BG,position:'relative',overflow:'hidden'},exactHomeImage:{position:'absolute',top:0,left:0,right:0,bottom:0,width:'100%',height:'100%'},homeHit:{position:'absolute',backgroundColor:'transparent'},"
-          if style_anchor not in s:
-              raise SystemExit('style anchor missing')
-          s=s.replace(style_anchor,style_repl,1)
-          nav_anchor="{special?<View style={s.backDock}>"
-          if nav_anchor not in s:
-              raise SystemExit('nav anchor missing')
-          s=s.replace(nav_anchor,"{screen==='home'?null:special?<View style={s.backDock}>",1)
-          shell_anchor='return <SafeAreaView style={s.safe}><StatusBar style="light"/>'
-          if shell_anchor not in s:
-              raise SystemExit('shell anchor missing')
-          s=s.replace(shell_anchor,"const Shell=screen==='home'?View:SafeAreaView;return <Shell style={s.safe}><StatusBar hidden={screen==='home'} style=\"light\"/>",1)
-          close_anchor='</SafeAreaView>}\n\nconst s=StyleSheet.create('
-          if close_anchor not in s:
-              raise SystemExit('shell close anchor missing')
-          s=s.replace(close_anchor,'</Shell>}\n\nconst s=StyleSheet.create(',1)
-          p.write_text(s)
-          PY
-          grep -q "home-screen-exact.jpg" src/App.js
-          grep -q "screen==='home'?null:special" src/App.js
-          grep -q "hidden={screen==='home'}" src/App.js
-          ! grep -q "HEY LEGEND" src/App.js
-          ! grep -q "LAST 5" src/App.js
-          if grep -Eqi 'XP Control|Holographic Control|XP Face|xp_face|assets/xp' src/App.js app.json; then
-            echo 'XP contamination introduced during patch'
-            exit 1
-          fi
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+
       - name: Create Android project
         run: npx expo prebuild --platform android --clean
-      - name: Build standalone APK
+
+      - name: Build release APK
         run: cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+
       - name: Verify APK exists
         run: test -s android/app/build/outputs/apk/release/app-release.apk
-      - name: Prepare launch APK
+
+      - name: Runtime launch and capture
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          working-directory: tattietcg
+          script: |
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            adb logcat -c
+            adb shell monkey -p uk.domhnall.tattietcg -c android.intent.category.LAUNCHER 1
+            sleep 8
+            PID=$(adb shell pidof uk.domhnall.tattietcg | tr -d '\r')
+            test -n "$PID"
+            if adb logcat -d '*:E' | grep -E 'FATAL EXCEPTION|Process: uk.domhnall.tattietcg'; then
+              exit 1
+            fi
+            adb exec-out screencap -p > tattie-home-runtime.png
+            test -s tattie-home-runtime.png
+
+      - name: Visual check against approved Tattie home
+        run: |
+          python - <<'PY'
+          from PIL import Image,ImageChops,ImageStat
+          ref=Image.open('assets/home-screen-exact.jpg').convert('RGB').resize((128,192))
+          scr=Image.open('tattie-home-runtime.png').convert('RGB')
+          sw,sh=scr.size
+          best=999
+          for top in range(0,min(200,sh//5)+1,10):
+              for bottom in range(0,min(300,sh//4)+1,10):
+                  if sh-top-bottom < sh*0.7: continue
+                  crop=scr.crop((0,top,sw,sh-bottom)).resize((128,192))
+                  mae=sum(ImageStat.Stat(ImageChops.difference(crop,ref)).mean)/3
+                  best=min(best,mae)
+          print('VISUAL_MAE',best)
+          if best>40:
+              raise SystemExit('Rendered home does not match approved Tattie artwork')
+          print('REAL_TATTIE_HOME_PASS')
+          PY
+
+      - name: Upload screenshot proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: TattieTCG-Home-Proof
+          path: tattietcg/tattie-home-runtime.png
+          retention-days: 30
+
+      - name: Prepare APK
         run: cp android/app/build/outputs/apk/release/app-release.apk TattieTCG.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: TattieTCG-APK
           path: tattietcg/TattieTCG.apk
           retention-days: 30
-      - name: Publish permanent APK
+
+      - name: Publish verified APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view tattietcg-latest >/dev/null 2>&1; then
             gh release upload tattietcg-latest TattieTCG.apk --clobber
           else
-            gh release create tattietcg-latest TattieTCG.apk --title "TattieTCG Android" --notes "Official TattieTCG Android APK."
+            gh release create tattietcg-latest TattieTCG.apk --title "TattieTCG Android" --notes "Verified TattieTCG Android APK."
           fi
