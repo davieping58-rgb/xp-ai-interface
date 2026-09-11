@@ -18,7 +18,7 @@ let maleVoice=null;
 const speak=async t=>{Speech.stop();try{if(!maleVoice){const vs=await Speech.getAvailableVoicesAsync();const en=vs.filter(v=>String(v.language||'').toLowerCase().startsWith('en'));const males=en.filter(v=>/male|gbb|gbm|uk.*m/i.test(String(v.name||'')+' '+String(v.identifier||'')));maleVoice=(males.find(v=>String(v.language||'').toLowerCase().includes('gb'))||males[0]||en.find(v=>String(v.language||'').toLowerCase().includes('gb'))||{}).identifier||null}Speech.speak(String(t),{language:'en-GB',voice:maleVoice||undefined,rate:.9,pitch:.78})}catch{Speech.speak(String(t),{language:'en-GB',rate:.9,pitch:.78})}};
 
 function Btn({children,onPress,outline=false}){return <Pressable onPress={onPress} style={[s.btn,outline&&s.btnOutline]}><Text style={s.btnText}>{children}</Text></Pressable>}
-function Header({title}){return <View style={s.header}><Image source={require('../assets/tattie-logo.jpg')} style={s.logo} resizeMode="contain"/><Text style={s.headerTitle}>{title}</Text></View>}
+function Header({title}){return <View style={s.header}><Text style={s.headerTitle}>TATTIE TCG</Text><Text style={s.headerTitle}>{title}</Text></View>}
 
 function Home({go}){return <View style={s.exactHome}>
   <Image source={require('../assets/home-screen-exact.png')} style={s.exactHomeImage} resizeMode="stretch"/>
