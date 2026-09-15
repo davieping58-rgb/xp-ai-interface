@@ -24,7 +24,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.19.0'
+          node-version: '20.19.4'
 
       - uses: actions/setup-java@v4
         with:
@@ -45,7 +45,7 @@ jobs:
           grep -q '"package": "uk.domhnall.tattietcg"' app.json
           grep -q '"versionCode": 23' app.json
           test "$(git hash-object assets/home-screen-exact.png)" = '7011fa135d7219ce23ad1b700b3d84394e45ff8b'
-          if grep -Eqi 'XP Control|Holographic Control|XP Face|xp_face|assets/xp' src/AppFinal.js app.json index.js; then
+          if grep -Eqi 'XP Control|Holographic Control|XP Face|xp_face|assets/xp|MOTHERSHIP|xpcore' src/AppFinal.js app.json index.js; then
             echo 'XP contamination detected'
             exit 1
           fi
@@ -76,9 +76,13 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Create Android project
+        env:
+          NODE_ENV: production
         run: npx expo prebuild --platform android --clean
 
       - name: Build release APK
+        env:
+          NODE_ENV: production
         run: cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon
 
       - name: Verify APK exists
@@ -87,23 +91,34 @@ jobs:
       - name: Runtime launch and capture
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 34
           arch: x86_64
           profile: pixel_6
           disable-animations: true
           working-directory: tattietcg
           script: |
+            set -e
+            adb wait-for-device
             adb install -r android/app/build/outputs/apk/release/app-release.apk
             adb logcat -c
-            adb shell monkey -p uk.domhnall.tattietcg -c android.intent.category.LAUNCHER 1
-            sleep 8
+            adb shell am force-stop uk.domhnall.tattietcg
+            adb shell am start -W -n uk.domhnall.tattietcg/.MainActivity
+            sleep 12
+            adb logcat -d > tattie-runtime.log || true
+            if grep -E 'FATAL EXCEPTION|Process: uk.domhnall.tattietcg|AndroidRuntime.*FATAL' tattie-runtime.log; then
+              echo 'TATTIE_RUNTIME_CRASH'
+              grep -A 40 -B 10 -E 'FATAL EXCEPTION|Process: uk.domhnall.tattietcg|AndroidRuntime.*FATAL' tattie-runtime.log || true
+              exit 1
+            fi
             PID=$(adb shell pidof uk.domhnall.tattietcg | tr -d '\r')
-            test -n "$PID"
-            if adb logcat -d '*:E' | grep -E 'FATAL EXCEPTION|Process: uk.domhnall.tattietcg'; then
+            if [ -z "$PID" ]; then
+              echo 'TATTIE_PROCESS_NOT_RUNNING'
+              tail -n 250 tattie-runtime.log || true
               exit 1
             fi
             adb exec-out screencap -p > tattie-home-runtime.png
             test -s tattie-home-runtime.png
+            echo "TATTIE_RUNTIME_PASS pid=$PID"
 
       - name: Visual check against approved Tattie home
         run: |
