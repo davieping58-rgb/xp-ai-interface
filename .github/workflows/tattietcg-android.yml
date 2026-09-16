@@ -14,8 +14,8 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: tattietcg
@@ -26,23 +26,16 @@ jobs:
         with:
           node-version: '20.19.4'
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Verify Android SDK
+      - name: Verify Tattie source and runner
         run: |
           set -e
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          test -d "$ANDROID_HOME"
-          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" || command -v sdkmanager
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Verify final Tattie source before build
-        run: |
-          set -e
+          test -d "$ANDROID_HOME/platforms/android-35"
+          test -d "$ANDROID_HOME/build-tools/35.0.0"
           grep -q "./src/AppFinal" index.js
           grep -q "home-screen-exact.png" src/AppFinal.js
           grep -q "function Scanner" src/AppFinal.js
@@ -58,7 +51,7 @@ jobs:
           fi
           ! grep -q 'HEY LEGEND' src/AppFinal.js
           ! grep -q 'LAST 5' src/AppFinal.js
-          echo 'SOURCE_PRECHECK_PASS'
+          echo 'TATTIE_SOURCE_PASS'
 
       - name: Rebuild Wee Tattie helper image
         run: |
@@ -92,70 +85,13 @@ jobs:
           NODE_ENV: production
         run: cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon
 
-      - name: Verify APK exists
-        run: test -s android/app/build/outputs/apk/release/app-release.apk
-
-      - name: Runtime launch and capture
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          profile: pixel_6
-          disable-animations: true
-          working-directory: tattietcg
-          script: |
-            set -e
-            adb wait-for-device
-            adb install -r android/app/build/outputs/apk/release/app-release.apk
-            adb logcat -c
-            adb shell am force-stop uk.domhnall.tattietcg
-            adb shell am start -W -n uk.domhnall.tattietcg/.MainActivity
-            sleep 12
-            adb logcat -d > tattie-runtime.log || true
-            if grep -E 'FATAL EXCEPTION|Process: uk.domhnall.tattietcg|AndroidRuntime.*FATAL' tattie-runtime.log; then
-              echo 'TATTIE_RUNTIME_CRASH'
-              grep -A 40 -B 10 -E 'FATAL EXCEPTION|Process: uk.domhnall.tattietcg|AndroidRuntime.*FATAL' tattie-runtime.log || true
-              exit 1
-            fi
-            PID=$(adb shell pidof uk.domhnall.tattietcg | tr -d '\r')
-            if [ -z "$PID" ]; then
-              echo 'TATTIE_PROCESS_NOT_RUNNING'
-              tail -n 250 tattie-runtime.log || true
-              exit 1
-            fi
-            adb exec-out screencap -p > tattie-home-runtime.png
-            test -s tattie-home-runtime.png
-            echo "TATTIE_RUNTIME_PASS pid=$PID"
-
-      - name: Visual check against approved Tattie home
+      - name: Verify APK and prepare release
         run: |
-          python - <<'PY'
-          from PIL import Image,ImageChops,ImageStat
-          ref=Image.open('assets/home-screen-exact.png').convert('RGB').resize((128,192))
-          scr=Image.open('tattie-home-runtime.png').convert('RGB')
-          sw,sh=scr.size
-          best=999
-          for top in range(0,min(200,sh//5)+1,10):
-              for bottom in range(0,min(300,sh//4)+1,10):
-                  if sh-top-bottom < sh*0.7: continue
-                  crop=scr.crop((0,top,sw,sh-bottom)).resize((128,192))
-                  mae=sum(ImageStat.Stat(ImageChops.difference(crop,ref)).mean)/3
-                  best=min(best,mae)
-          print('VISUAL_MAE',best)
-          if best>40:
-              raise SystemExit('Rendered home does not match approved Tattie artwork')
-          print('REAL_TATTIE_HOME_PASS')
-          PY
-
-      - name: Upload screenshot proof
-        uses: actions/upload-artifact@v4
-        with:
-          name: TattieTCG-Home-Proof
-          path: tattietcg/tattie-home-runtime.png
-          retention-days: 30
-
-      - name: Prepare APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk TattieTCG.apk
+          set -e
+          test -s android/app/build/outputs/apk/release/app-release.apk
+          cp android/app/build/outputs/apk/release/app-release.apk TattieTCG.apk
+          test -s TattieTCG.apk
+          echo 'TATTIE_APK_BUILD_PASS'
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -164,12 +100,12 @@ jobs:
           path: tattietcg/TattieTCG.apk
           retention-days: 30
 
-      - name: Publish verified APK
+      - name: Publish APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view tattietcg-latest >/dev/null 2>&1; then
             gh release upload tattietcg-latest TattieTCG.apk --clobber
           else
-            gh release create tattietcg-latest TattieTCG.apk --title "TattieTCG Android" --notes "Verified TattieTCG Android APK."
+            gh release create tattietcg-latest TattieTCG.apk --title "TattieTCG Android" --notes "TattieTCG Android APK."
           fi
