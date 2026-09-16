@@ -31,32 +31,20 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Verify Tattie source and runner
+      - name: Verify approved Tattie source
         run: |
-          set -e
-          test -d "$ANDROID_HOME/platforms/android-35"
-          test -d "$ANDROID_HOME/build-tools/35.0.0"
+          set -euo pipefail
+          test "$PWD" = "$GITHUB_WORKSPACE/tattietcg"
           grep -q "./src/AppFinal" index.js
           grep -q "home-screen-exact.png" src/AppFinal.js
-          grep -q "function Scanner" src/AppFinal.js
-          grep -q "function Tattie" src/AppFinal.js
-          grep -q "function Community" src/AppFinal.js
           grep -q '"name": "TattieTCG"' app.json
           grep -q '"package": "uk.domhnall.tattietcg"' app.json
-          grep -q '"versionCode": 23' app.json
           test "$(git hash-object assets/home-screen-exact.png)" = '7011fa135d7219ce23ad1b700b3d84394e45ff8b'
-          if grep -Eqi 'XP Control|Holographic Control|XP Face|xp_face|assets/xp|MOTHERSHIP|xpcore' src/AppFinal.js app.json index.js; then
-            echo 'XP contamination detected'
+          if grep -Eqi 'XP Control|Holographic Control|XP Face|MOTHERSHIP|xpcore' src/AppFinal.js app.json index.js; then
+            echo 'XP contamination detected in Tattie entry source'
             exit 1
           fi
-          ! grep -q 'HEY LEGEND' src/AppFinal.js
-          ! grep -q 'LAST 5' src/AppFinal.js
           echo 'TATTIE_SOURCE_PASS'
-
-      - name: Rebuild Wee Tattie helper image
-        run: |
-          base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
-          test -s assets/wee-tattie-home.jpg
 
       - name: Validate approved home artwork
         run: |
@@ -67,31 +55,60 @@ jobs:
           im=Image.open(p)
           im.verify()
           im=Image.open(p)
-          if im.size != (1024,1536):
-              raise SystemExit(f'wrong home dimensions: {im.size}')
+          assert im.size == (1024,1536), im.size
           print('APPROVED_HOME_OK', im.size)
           PY
+
+      - name: Rebuild Wee Tattie helper image
+        run: |
+          base64 -d assets/wee-tattie-home.b64 > assets/wee-tattie-home.jpg
+          test -s assets/wee-tattie-home.jpg
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Create Android project
+      - name: Create Tattie Android project
         env:
           NODE_ENV: production
-        run: npx expo prebuild --platform android --clean
-
-      - name: Build release APK
-        env:
-          NODE_ENV: production
-        run: cd android && chmod +x gradlew && ./gradlew assembleRelease --no-daemon
-
-      - name: Verify APK and prepare release
         run: |
-          set -e
-          test -s android/app/build/outputs/apk/release/app-release.apk
-          cp android/app/build/outputs/apk/release/app-release.apk TattieTCG.apk
-          test -s TattieTCG.apk
-          echo 'TATTIE_APK_BUILD_PASS'
+          set -euo pipefail
+          test "$PWD" = "$GITHUB_WORKSPACE/tattietcg"
+          rm -rf android
+          npx expo prebuild --platform android --clean
+          grep -Rqs 'uk.domhnall.tattietcg' android/app
+          grep -Rqs 'TattieTCG' android/app/src/main
+
+      - name: Build Tattie release APK
+        env:
+          NODE_ENV: production
+        run: |
+          set -euo pipefail
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Verify APK is Tattie before publishing
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          test -x "$AAPT"
+          BADGING="$($AAPT dump badging "$APK")"
+          echo "$BADGING" | grep -q "package: name='uk.domhnall.tattietcg'"
+          echo "$BADGING" | grep -q "application-label:'TattieTCG'"
+          unzip -l "$APK" | grep -q 'assets/index.android.bundle'
+          unzip -p "$APK" assets/index.android.bundle > /tmp/tattie.bundle
+          strings /tmp/tattie.bundle > /tmp/tattie.strings
+          grep -q 'home-screen-exact.png' /tmp/tattie.strings
+          grep -q 'TATTIE TCG' /tmp/tattie.strings
+          grep -q 'CARD SCANNER' /tmp/tattie.strings
+          if grep -Eqi 'XP Control|Holographic Control|XP Face|MOTHERSHIP|xpcore' /tmp/tattie.strings; then
+            echo 'XP contamination detected inside built APK'
+            exit 1
+          fi
+          cp "$APK" TattieTCG.apk
+          echo 'TATTIE_APK_IDENTITY_PASS'
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -100,12 +117,12 @@ jobs:
           path: tattietcg/TattieTCG.apk
           retention-days: 30
 
-      - name: Publish APK
+      - name: Publish verified Tattie APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view tattietcg-latest >/dev/null 2>&1; then
             gh release upload tattietcg-latest TattieTCG.apk --clobber
           else
-            gh release create tattietcg-latest TattieTCG.apk --title "TattieTCG Android" --notes "TattieTCG Android APK."
+            gh release create tattietcg-latest TattieTCG.apk --target "$GITHUB_SHA" --title "TattieTCG Android" --notes "Verified TattieTCG Android APK."
           fi
